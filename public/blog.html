@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notícia - Portal Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Inter:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Roboto:wght@400;700&family=Montserrat:wght@400;700;800&family=Poppins:wght@400;600;800&family=Bebas+Neue&family=Lora:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --accent-color: #ff3e3e; 
+            --bg-color: #050505;
+            --card-bg: rgba(25, 25, 25, 0.95);
+            --text-color: #ffffff;
+            --secondary-text: #aaaaaa;
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --gradient: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            background-image: radial-gradient(circle at top right, rgba(255, 62, 62, 0.05), transparent 50%);
+            min-height: 100vh;
+        }
+
+        /* Nav */
+        nav {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 15px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .logo { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: -1px; }
+        .logo span { color: var(--accent-color); }
+        .nav-btn {
+            background: rgba(255,255,255,0.1); border: none; color: white;
+            padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600;
+            transition: all 0.3s ease; display: flex; align-items: center; gap: 8px;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+
+        /* Container */
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+
+        /* Article Reader View */
+        .category-badge { background: var(--accent-color); color: white; padding: 4px 10px; border-radius: 8px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; display: inline-block; }
+        .reader-header { text-align: center; margin-bottom: 30px; }
+        .reader-title { font-family: 'Outfit', sans-serif; font-size: 2.5rem; font-weight: 800; margin: 15px 0; line-height: 1.1; }
+        .article-meta { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--secondary-text); }
+        .reader-cover { width: 100%; max-height: 500px; object-fit: cover; border-radius: 20px; margin-bottom: 30px; }
+        .reader-content { font-size: 1.1rem; line-height: 1.8; color: #ddd; max-width: 800px; margin: 0 auto; }
+        .author-box { display: flex; align-items: center; gap: 15px; padding: 20px; background: rgba(255,255,255,0.03); border-radius: 15px; margin-top: 40px; border: 1px solid var(--glass-border); }
+        .reader-actions { margin-top: 20px; text-align: right; }
+        
+        /* Toast */
+        #toast { position: fixed; bottom: -50px; left: 50%; transform: translateX(-50%); background: var(--card-bg); color: white; padding: 12px 24px; border-radius: 30px; transition: bottom 0.3s; z-index: 9999; border: 1px solid var(--glass-border); font-size: 0.9rem; font-weight: 600; }
+        #loader { text-align: center; margin-top: 50px; }
+        .spinner { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--accent-color); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Entry Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+        
+        [class^="anim-"] { opacity: 0; }
+        .is-visible.anim-fadeIn { animation: fadeIn 0.7s ease-out both; opacity: 1; }
+        .is-visible.anim-slideUp { animation: slideUp 0.7s ease-out both; opacity: 1; }
+        .is-visible.anim-zoomIn { animation: zoomIn 0.7s ease-out both; opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">portal <span>notícias</span></div>
+        <button class="nav-btn" onclick="window.location.href='/index.html'"><i class="fa-solid fa-arrow-left"></i> Voltar ao App</button>
+    </nav>
+
+    <div class="container">
+        <div id="loader"><div class="spinner"></div></div>
+        <div id="readerContentArea"></div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const urlParams = new URLSearchParams(window.location.search);
+        const postId = urlParams.get('postId');
+
+        // Apply theme from main app
+        const savedTheme = localStorage.getItem('themeColor');
+        if(savedTheme) document.documentElement.style.setProperty('--accent-color', savedTheme);
+
+        if (!token) {
+            alert('Você precisa estar logado para ler matérias!');
+            window.location.href = '/index.html';
+        }
+
+        if (!postId) {
+            window.location.href = '/index.html';
+        } else {
+            readArticle(postId);
+        }
+
+        // Helper: Parse any YouTube URL into embed format
+        function getYouTubeEmbed(url) {
+            if (!url) return '';
+            let videoId = '';
+            if (url.includes('v=')) videoId = url.split('v=')[1].split('&')[0];
+            else if (url.includes('youtu.be/')) videoId = url.split('youtu.be/')[1].split('?')[0];
+            else if (url.includes('embed/')) videoId = url.split('embed/')[1].split('?')[0];
+            else if (url.includes('shorts/')) videoId = url.split('shorts/')[1].split('?')[0];
+            return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1` : url;
+        }
+
+        // Helper: Render inline highlights [G]...[/G]
+        function renderRichText(text, hColor) {
+            if (!text) return '';
+            hColor = hColor || '#ffff00';
+            const isDark = (hex) => {
+                if (!hex || hex === 'transparent') return false;
+                const c = hex.substring(1);
+                const rgb = parseInt(c, 16);
+                const r = (rgb >> 16) & 0xff;
+                const g = (rgb >>  8) & 0xff;
+                const b = (rgb >>  0) & 0xff;
+                const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                return luma < 128;
+            };
+            const tColor = isDark(hColor) ? '#ffffff' : '#000000';
+            return text.replace(/\[G\](.*?)\[\/G\]/g, `<mark style="background: ${hColor}; color: ${tColor}; padding: 0 4px; border-radius: 2px; font-weight: 800;">$1</mark>`);
+        }
+
+        async function readArticle(id) {
+            try {
+                const res = await fetch(`/api/posts/${id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                const post = await res.json();
+                
+                if (post.bgColor && post.bgColor !== 'transparent') {
+                    document.body.style.background = post.bgColor;
+                }
+                
+                document.getElementById('loader').style.display = 'none';
+
+                if (!res.ok || !post.isBuilderBlog) {
+                    document.getElementById('readerContentArea').innerHTML = `
+                        <div style="text-align:center; padding: 50px;">
+                            <h2 style="color:var(--accent-color);">Reportagem não encontrada</h2>
+                            <p style="color:var(--secondary-text); margin-top: 10px;">Esta publicação não existe ou foi excluída pelo autor.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let bTitle = post.groupName || 'Reportagem Especial';
+                let bHeroImg = '';
+                let blocksHtml = '';
+
+                (post.layout || []).forEach(block => {
+                    if (block.type === 'title' && bTitle === 'Reportagem Especial') bTitle = block.content;
+                    if (block.type === 'hero' && !bHeroImg) bHeroImg = block.content;
+                    if (block.type === 'hero') return; // Hero is shown in header, not inline
+
+                    const isHigh = block.highlight;
+                    const hColor = block.highlightColor || '#ffff00';
+                    const bBg = isHigh ? hColor : (block.gradientBg ? 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)' : (block.bgColor || 'transparent'));
+                    
+                    const isDark = (hex) => {
+                        if (!hex || hex === 'transparent') return false;
+                        const c = hex.substring(1);
+                        const rgb = parseInt(c, 16);
+                        const r = (rgb >> 16) & 0xff;
+                        const g = (rgb >>  8) & 0xff;
+                        const b = (rgb >>  0) & 0xff;
+                        return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 128;
+                    };
+
+                    const bColor = isHigh ? (isDark(hColor) ? '#ffffff' : '#000000') : (block.color === '#ffffff' ? 'var(--text-color)' : (block.color || 'var(--text-color)'));
+                    const bWeight = (isHigh || block.bold) ? '800' : '400';
+                    const bRadius = (block.borderRadius || 0) + 'px';
+                    const fSize = (block.fontSize || 16) + 'px';
+                    const fFamily = block.fontFamily || (block.type === 'quote' ? "'Lora', serif" : block.type === 'stat' ? "'Bebas Neue', sans-serif" : "'Outfit', sans-serif");
+                    const content = renderRichText(block.content, hColor);
+
+                    // Wrap element in animation div if set
+                    const animClass = (block.animation && block.animation !== 'none') ? `anim-${block.animation}` : '';
+                    const wrapStart = animClass ? `<div class="${animClass}" style="width:100%;">` : '<div style="width:100%;">';
+                    const wrapEnd = '</div>';
+
+                    let blockHtml = '';
+
+                    if (block.type === 'title') {
+                        blockHtml = `<h1 style="text-align:${block.align}; color:${bColor}; background:${bBg}; font-weight:800; font-size:min(2.5rem, ${fSize}); margin-bottom:20px; padding:${isHigh || block.bgColor !== 'transparent' ? '10px' : '0'}; border-radius:${bRadius}; font-family:${fFamily};">${content}</h1>`;
+                    } else if (block.type === 'subtitle') {
+                        blockHtml = `<h2 style="text-align:${block.align}; color:${bColor}; background:${bBg}; font-size:min(1.6rem, ${fSize}); font-weight:${bWeight}; margin-bottom:15px; padding:${isHigh || block.bgColor !== 'transparent' ? '8px' : '0'}; border-radius:${bRadius}; font-family:${fFamily};">${content}</h2>`;
+                    } else if (block.type === 'text') {
+                        blockHtml = `<p style="text-align:${block.align}; color:${bColor}; background:${bBg}; line-height:1.7; margin-bottom:15px; font-weight:${bWeight}; font-size:${fSize}; padding:${bBg !== 'transparent' ? '12px' : '0'}; border-radius:${bRadius}; white-space:pre-wrap; font-family:${fFamily};">${content}</p>`;
+                    } else if (block.type === 'quote') {
+                        blockHtml = `<blockquote style="text-align:${block.align}; color:${bColor}; background:${bBg}; border-left:4px solid var(--accent-color); padding:20px 20px 20px 24px; font-family:${fFamily}; font-size:min(1.4rem, ${fSize}); font-style:italic; margin:30px 0; border-radius:${bRadius};">${content}</blockquote>`;
+                    } else if (block.type === 'info') {
+                        blockHtml = `<div style="text-align:${block.align}; color:${bColor}; background:${bBg}; border-left:4px solid var(--accent-color); padding:20px; font-weight:600; border-radius:${bRadius}; margin-bottom:20px; font-size:${fSize}; font-family:${fFamily};">${content}</div>`;
+                    } else if (block.type === 'stat') {
+                        blockHtml = `<div style="text-align:center; color:${bColor}; background:${bBg}; font-weight:800; font-size:min(3rem, ${fSize}); padding:30px; border-radius:${bRadius}; margin-bottom:25px; font-family:${fFamily};">${content}</div>`;
+                    } else if (block.type === 'img') {
+                        blockHtml = `<img src="${block.content}" style="width:100%; border-radius:${bRadius}; margin-bottom:25px; display:block; border: 2px solid ${isHigh ? hColor : 'transparent'}; object-fit:cover;">`;
+                    } else if (block.type === 'list') {
+                        const parts = block.content.split('|||');
+                        blockHtml = `
+                        <div style="display: flex; flex-wrap: wrap; gap: 20px; background: ${bBg}; padding: 25px; border-radius: ${bRadius}; margin-bottom: 25px;">
+                            <div style="flex: 1 1 200px; font-weight: 800; font-size: 1.2rem; color: ${bColor};">${renderRichText(parts[0] || '', hColor)}</div>
+                            <div style="flex: 2 1 300px; font-size: 1.05rem; line-height: 1.7; color: ${bColor}; font-weight:${bWeight};">${renderRichText(parts[1] || '', hColor)}</div>
+                        </div>`;
+                    } else if (block.type === 'youtube' || block.type === 'video') {
+                        const embedUrl = getYouTubeEmbed(block.content);
+                        blockHtml = `
+                        <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:${bRadius || '12px'}; margin-bottom:25px; background:#000; box-shadow:0 8px 30px rgba(0,0,0,0.6);">
+                            <iframe src="${embedUrl}" style="position:absolute; top:0; left:0; width:100%; height:100%; border:none;" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe>
+                        </div>`;
+                    } else if (block.type === 'button') {
+                        const parts = block.content.split('|||');
+                        const btnText = parts[0] || 'Clique aqui';
+                        const btnUrl = parts[1] || '#';
+                        const btnBg = block.gradientBg ? 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366)' : (block.bgColor && block.bgColor !== 'transparent' ? block.bgColor : 'var(--accent-color)');
+                        const btnColor = (bColor && bColor !== 'var(--text-color)') ? bColor : '#fff';
+                        blockHtml = `<div style="text-align:${block.align || 'center'}; margin-bottom:25px;">
+                            <a href="${btnUrl}" target="_blank" rel="noopener noreferrer"
+                               style="display:inline-block; background:${btnBg}; color:${btnColor}; padding:14px 32px; border-radius:${bRadius || '30px'}; font-weight:800; font-size:${fSize}; text-decoration:none; box-shadow:0 4px 15px rgba(0,0,0,0.4); transition:transform 0.2s, box-shadow 0.2s;"
+                               onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.6)';"
+                               onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(0,0,0,0.4)';">
+                                ${btnText} <i class="fa-solid fa-arrow-right" style="margin-left:8px;"></i>
+                            </a>
+                        </div>`;
+                    }
+
+                    if (blockHtml) {
+                        blocksHtml += wrapStart + blockHtml + wrapEnd;
+                    }
+                });
+
+                document.getElementById('readerContentArea').innerHTML = `
+                    <div class="reader-header" style="${bHeroImg ? `background: linear-gradient(rgba(0,0,0,0.4), rgba(5,5,5,1)), url('${bHeroImg}') center/cover; padding: 120px 20px 40px 20px; margin: -20px -20px 30px -20px; border-radius: 20px 20px 0 0;` : 'margin-bottom: 30px;'}">
+                        <div class="category-badge" style="background: var(--accent-color); color: white; display: inline-block; padding: 6px 14px; font-weight: 800; border-radius: 6px; font-size: 0.75rem; margin-bottom: 20px; text-transform: uppercase;">TRABALHO / BLOG</div>
+                        <h1 class="reader-title" style="font-family: 'Outfit'; font-size: ${bHeroImg ? '3.2rem' : '2.8rem'}; font-weight: 800; color: white; line-height: 1.1; margin-bottom: 20px; text-shadow: ${bHeroImg ? '2px 2px 10px rgba(0,0,0,0.8)' : 'none'};">${bTitle}</h1>
+                        <div class="article-meta" style="justify-content: flex-start; gap: 20px; font-size: 0.95rem; color: #ccc;">
+                            <span><i class="fa-regular fa-calendar" style="color: var(--accent-color);"></i> ${new Date(post.createdAt).toLocaleDateString()}</span>
+                            <span><i class="fa-solid fa-users" style="color: var(--accent-color);"></i> ${post.participants?.length || 0} integrantes</span>
+                            <span><i class="fa-regular fa-eye" style="color: var(--accent-color);"></i> ${post.views ? post.views.length : 0}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="reader-content">${blocksHtml}</div>
+                    
+                    <div class="author-box" style="display: flex; flex-direction: column; gap: 20px; background: rgba(255,255,255,0.05); padding: 30px; border-radius: 20px; margin-top: 50px; border: 1px solid var(--glass-border); position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -10px; right: -10px; font-size: 5rem; color: rgba(255,255,255,0.03); transform: rotate(-15deg); pointer-events: none;">
+                            <i class="fa-solid fa-users"></i>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="width: 45px; height: 45px; background: var(--accent-color); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                                <i class="fa-solid fa-pen-fancy"></i>
+                            </div>
+                            <div>
+                                <h4 style="color: var(--secondary-text); font-size: 0.7rem; text-transform: uppercase; font-weight: 900; margin: 0; letter-spacing: 2px;">Equipe de Reportagem</h4>
+                                <h2 style="font-family: 'Outfit'; font-size: 1.4rem; font-weight: 800; color: white; margin: 5px 0 0 0;">${post.groupName || 'Portal Studio'}</h2>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            ${post.participants && post.participants.length > 0 
+                                ? post.participants.map(p => `
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 8px; height: 8px; background: var(--accent-color); border-radius: 50%;"></div>
+                                        <span style="font-size: 1rem; color: #eee; font-weight: 600;">${p.fullName || p.username}</span>
+                                    </div>
+                                `).join('')
+                                : `<div style="display: flex; align-items: center; gap: 10px;">
+                                        <div style="width: 8px; height: 8px; background: var(--accent-color); border-radius: 50%;"></div>
+                                        <span style="font-size: 1rem; color: #eee; font-weight: 600;">${post.user?.fullName || post.user?.username || 'Autor'}</span>
+                                   </div>`
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="reader-actions">
+                        <button class="nav-btn" style="background: var(--accent-color); color: white;" onclick="window.location.href='/index.html'"><i class="fa-solid fa-house"></i> Voltar ao Feed Inicial</button>
+                    </div>
+                `;
+                
+                // Initialize reveal animations
+                initScrollReveal();
+            } catch(e) {
+                console.error(e);
+                showToast('Erro de conexão ao carregar matéria.');
+            }
+        }
+
+        function initScrollReveal() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            const items = document.querySelectorAll('[class^="anim-"]');
+            items.forEach(el => {
+                // Check if already in viewport (fallback for some browsers)
+                const rect = el.getBoundingClientRect();
+                if (rect.top < window.innerHeight && rect.bottom >= 0) {
+                    el.classList.add('is-visible');
+                } else {
+                    observer.observe(el);
+                }
+            });
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.style.bottom = '20px';
+            setTimeout(() => toast.style.bottom = '-50px', 3000);
+        }
+    </script>
+</body>
+</html>
