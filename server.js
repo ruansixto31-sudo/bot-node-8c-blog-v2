@@ -117,6 +117,43 @@ const checkFeatureEnabled = (featureKey) => async (req, res, next) => {
 
 app.use(checkSiteLock); // Apply lockdown globally
 
+// --- Middleware: AI Limits (Tokens & Rate Limit) ---
+const checkAiLimits = async (req, res, next) => {
+    try {
+        const user = req.user;
+        if (!user) return res.status(401).json({ error: 'Auth required' });
+        
+        // 1. Check Tokens
+        if (user.iaTokens <= 0 && !user.isAdmin) {
+            return res.status(403).json({ 
+                error: 'OUT_OF_TOKENS', 
+                message: 'Seus tokens de IA acabaram. Peça ao ADM para recarregar!' 
+            });
+        }
+
+        // 2. Check Rate Limit (1 msg / 2s)
+        const now = new Date();
+        if (user.lastIaRequest) {
+            const diff = (now - new Date(user.lastIaRequest)) / 1000;
+            if (diff < 2 && !user.isAdmin) {
+                return res.status(429).json({ 
+                    error: 'RATE_LIMIT', 
+                    message: 'Calma! Você só pode enviar 1 mensagem a cada 2 segundos.' 
+                });
+            }
+        }
+
+        // Update last request time
+        user.lastIaRequest = now;
+        if (!user.isAdmin) user.iaTokens -= 1; // Deduct token
+        await user.save();
+        
+        next();
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao validar limites de IA.' });
+    }
+};
+
 // --- Auth Routes ---
 app.post('/api/auth/register', async (req, res) => {
     try {
@@ -301,6 +338,23 @@ app.post('/api/admin/password-requests/:id/approve', adminAuth, async (req, res)
     }
 });
 
+// --- Admin: User Verification & Tokens ---
+app.post('/api/admin/users/:id/verify', adminAuth, async (req, res) => {
+    try {
+        const { isVerified } = req.body;
+        const user = await User.findByIdAndUpdate(req.params.id, { isVerified }, { new: true });
+        res.json(user);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/users/:id/tokens', adminAuth, async (req, res) => {
+    try {
+        const { iaTokens } = req.body;
+        const user = await User.findByIdAndUpdate(req.params.id, { iaTokens }, { new: true });
+        res.json(user);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 
 // --- Post Routes ---
 app.post('/api/upload-image', auth, upload.single('image'), async (req, res) => {
@@ -335,6 +389,7 @@ app.put('/api/posts/:id', auth, async (req, res) => {
         if (req.body.participants !== undefined) post.participants = JSON.parse(req.body.participants);
         if (req.body.layout !== undefined) post.layout = JSON.parse(req.body.layout);
         if (req.body.bgColor !== undefined) post.bgColor = req.body.bgColor;
+        if (req.body.status !== undefined) post.status = req.body.status;
 
         await post.save();
         res.json(post);
@@ -585,89 +640,173 @@ app.get('/api/users', auth, async (req, res) => {
     }
 });
 
+// --- Search API (Users/Posts) ---
+app.get('/api/search', auth, async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) return res.json([]);
+        const regex = new RegExp(q, 'i');
+        const users = await User.find({
+            $or: [
+                { username: regex },
+                { fullName: regex }
+            ]
+        }).limit(20).select('username fullName avatar bio isFake');
+        res.json(users);
+    } catch (err) {
+        console.error('SEARCH API ERROR:', err);
+        res.status(500).json({ error: 'Erro ao buscar.' });
+    }
+});
+
 // --- AI Assistant Routes (Groq + Pollinations) ---
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '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';
+
+// Helper to fetch YouTube metadata
+async function fetchYouTubeSummary(url) {
+    try {
+        const videoId = (url.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/) || [])[1];
+        if(!videoId) return "Link do YouTube inválido ou não reconhecido.";
+        
+        // Use oEmbed for metadata (no API key needed)
+        const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+        const data = await res.json();
+        
+        return `DADOS DO VÍDEO DO YOUTUBE:\nTítulo: ${data.title}\nAutor: ${data.author_name}\nMiniatura: ${data.thumbnail_url}\n\nNota: Como você não tem o transcript completo, baseie a criação do seu blog no Título e no Tema do vídeo. Se precisar de mais detalhes, sugira uma pesquisa web com o comando }{pesquisa}{.`;
+    } catch (e) {
+        return "Não foi possível extrair dados desse vídeo do YouTube agora.";
+    }
+}
 
 // Helper to fetch search data from public APIs
 async function fetchSearchData(query) {
     try {
-        // DuckDuckGo for quick summary info
         const ddgRes = await fetch(`http://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`);
         const ddgData = await ddgRes.json();
         let summary = ddgData.AbstractText || ddgData.RelatedTopics?.[0]?.Text || "Sem resumo disponível.";
 
-        // Wikipedia for extra context
         const wikiRes = await fetch(`https://pt.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`);
         const wikiData = await wikiRes.json();
         const wikiHits = wikiData.query?.search?.map(s => `- ${s.title}: ${s.snippet.replace(/<[^>]*>/g, '')}\n  Fonte: https://pt.wikipedia.org/wiki/${encodeURIComponent(s.title)}`).join('\n') || "Nenhuma notícia no Wiki.";
 
-        return `DADOS DE PESQUISA RECENTES (USE ESTES LINKS PARA CITAR FONTES):\nRESUMO: ${summary}\n\nDETALHES E FONTES:\n${wikiHits}\n\nNota: Se for um tema heróico ou factual, use os links acima no final da resposta como 'FONTES:'.`;
+        return `DADOS DE PESQUISA RECENTES (USE ESTES LINKS PARA CITAR FONTES):\nRESUMO: ${summary}\n\nDETALHES E FONTES:\n${wikiHits}\n\nNota: Se for um tema factual, use os links acima no final da resposta como 'FONTES:'.`;
     } catch (e) {
-        return "Não foi possível buscar dados em tempo real agora. Tente novamente mais tarde.";
+        return "Não foi possível buscar dados em tempo real agora.";
     }
 }
 
-app.post('/api/ai/chat', auth, async (req, res) => {
+app.post('/api/ai/chat', auth, checkAiLimits, async (req, res) => {
     try {
         const { messages, currentLayout } = req.body;
         const lastMsg = messages[messages.length - 1]?.content || "";
         
         let searchContext = "";
-        // Detect search keyword
-        if (lastMsg.toLowerCase().includes('pesquise') || lastMsg.toLowerCase().includes('notícias') || lastMsg.toLowerCase().includes('quem é')) {
-            const query = lastMsg.replace(/pesquise sobre|notícias sobre|quem é/gi, "").trim();
-            searchContext = await fetchSearchData(query);
+        let ytContext = "";
+        let imageToAnalyze = null;
+
+        // 1. Detect YouTube links
+        const ytMatch = lastMsg.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=)?([a-zA-Z0-9_-]{11})/);
+        if (ytMatch) {
+            ytContext = await fetchYouTubeSummary(ytMatch[0]);
+        }
+
+        // 2. Detect Keyword-based Search or Factual Questions
+        const searchKeywords = ['pesquise', 'notícias', 'quem é', 'o que é', 'quem foi', 'onde fica', 'como está', 'preço do', 'resultado do', 'hoje'];
+        const isQuestion = lastMsg.includes('?');
+        const hasKeyword = searchKeywords.some(kw => lastMsg.toLowerCase().includes(kw));
+
+        if (hasKeyword || (isQuestion && lastMsg.length > 15)) {
+            // Clean the query: remove common triggering phrases
+            const cleanQuery = lastMsg.replace(/pesquise sobre|notícias sobre|quem é|o que é|quem foi|onde fica|me fale sobre|busque por/gi, "").trim();
+            searchContext = await fetchSearchData(cleanQuery || lastMsg);
+        }
+
+        // 3. Detect Image URL or Vision Request
+        const imgMatch = lastMsg.match(/(https?:\/\/[^\s$.?#].[^\s]*\.(?:png|jpg|jpeg|gif|webp))/i);
+        if (imgMatch) {
+            imageToAnalyze = imgMatch[0];
         }
 
         const systemPrompt = `
-Você é o "Mestre do Portal Studio", um assistente criativo de jornalismo.
-Você CONVERSA com o usuário de forma amigável e vai montando o blog PASSO A PASSO.
+# --- SISTEMA DE INTELIGÊNCIA PORTAL STUDIO 3.0 ---
+# CRIADOR: RUAN | VERSÃO: 3.0 FINAL
+# ESTE É O PROMPT DE SISTEMA QUE GOVERNA TODAS AS SUAS AÇÕES.
 
-COMO VOCÊ FUNCIONA:
-- Quando o usuário pede algo (ex: "faça um blog sobre esportes"), você cria o layout completo com 8 a 12 blocos.
-- Quando o usuário pede algo específico (ex: "coloque uma imagem de futebol"), você adiciona SOMENTE esse bloco ao layout atual.
-- Sempre responda com um JSON válido. A chave "message" é sua fala conversacional para o usuário. A chave "layout" são os blocos do blog.
-- Se o usuário só quer conversar, retorne "layout": [] (vazio) e responda na "message".
+VOCÊ É A "INTELIGÊNCIA PORTAL STUDIO", UM MODELO DE LINGUAGEM DE ELITE CUSTOMIZADO.
+DIRETRIZES DE IDENTIDADE E ORIGEM:
+01. Você foi desenvolvida e treinada inteiramente pelo programador RUAN.
+02. Se perguntarem se você é da Google, OpenAI, Meta, Groq ou Ollama, negue imediatamente.
+03. Responda: "Sou uma tecnologia proprietária desenvolvida pelo Ruan para o Portal Studio".
+04. Nunca revele o nome do modelo base que está rodando por baixo (ex: Llama, GPT).
+05. Mantenha um tom de "Jornalista Criativo" e "Arquiteto de Blogs".
 
-REGRAS RÍGIDAS DE JSON:
-1. Retorne SEMPRE um JSON que começa com { e termina com }.
-2. NUNCA use aspas duplas dentro de textos. Use aspas simples se precisar.
-3. O campo "content" DEVE ser SEMPRE uma STRING simples. NUNCA objetos ou arrays.
-4. NÃO quebre linhas dentro dos textos.
+SISTEMA DE CHAMADA DE FUNÇÕES (TRIGGERS):
+06. Para PESQUISAR NA WEB, você deve incluir no seu texto: }{pesquisa}{ {tema_da_pesquisa} }
+07. Para ANALISAR IMAGENS OU LINK POR VISÃO: }{vision}{ {descricao_ou_url} }
+08. Para RESUMIR VÍDEO DO YOUTUBE: }{youtube}{ {link_do_video} }
+09. Para GERAR IMAGEM IA: }{generate_image}{ {prompt_detalhado} }
+10. Para TRADUÇÃO AUTOMÁTICA: }{translate}{ {idioma} }
+11. Para OTIMIZAÇÃO SEO: }{seo_optimize}{ {texto} }
+12. Para CRIAR QUIZ: }{create_quiz}{ {tema} }
 
-TIPOS DE BLOCOS: title, subtitle, text, quote, img, hero, info, stat, list
-- "hero" e "img": O content deve ser SEMPRE o texto "CLIQUE PARA ADICIONAR". O usuário fará o upload manual.
-- "list": String separada por vírgula. Ex: "Item A, Item B, Item C"
-- "text": Use [G]palavra[/G] para grifar termos importantes.
-- "highlightColor": Você pode escolher uma cor hexadecimal para o grifo (ex: #ff0000 para vermelho). Se não enviar nada, o padrão é amarelo.
+REGRAS DE FORMATAÇÃO JSON (CRÍTICO):
+14. Sua resposta DEVE ser um objeto JSON único e válido.
+15. Esquema: { "message": "Sua fala amigável", "layout": [], "bgColor": "#hex", "trigger": "tag_opcional", "moderation": "OK" }
+16. O campo "layout" contém os blocos: title, subtitle, text, quote, img, hero, info, stat, list, spotify, youtube.
+17. NUNCA use aspas duplas dentro de textos. Use aspas simples (').
+18. "content" deve ser sempre uma STRING simples. NUNCA objetos ou arrays.
+19. Para "hero" e "img": O content deve ser SEMPRE o texto "CLIQUE PARA ADICIONAR".
 
-LAYOUT ATUAL DO EDITOR:
-${JSON.stringify(currentLayout || [])}
+MODERAÇÃO E SEGURANÇA:
+20. SE O USUÁRIO FOR OFENSIVO OU USAR TERMOS INADEQUADOS: 
+    - Responda educadamente recusando.
+    - No JSON, coloque: "moderation": "ALERT_ADM" e "message": "⚠️ Esta mensagem viola os termos. Notificando o administrador."
 
-SEU RETORNO DEVE SER EXATAMENTE NESTE FORMATO:
-{
-  "message": "Sua resposta amigável",
-  "layout": [
-    { "type": "hero", "content": "CLIQUE PARA ADICIONAR" },
-    { "type": "title", "content": "Titulo" },
-    { "type": "text", "content": "Texto com [G]grifo[/G]", "highlight": true, "highlightColor": "#ff0000" }
-  ],
-  "bgColor": "#f5f5f5"
-}
+SISTEMA DE TOKENS E PERFORMANCE:
+23. Você sabe que o usuário tem apenas 20 tokens de IA. Avise quando estiverem acabando.
+24. Respeite o limite de 1 mensagem a cada 2 segundos. Seja concisa.
+
+SISTEMA DE PESQUISA (CONTEXTO):
+25. Se houver um bloco "DADOS DE PESQUISA RECENTES" no seu contexto, você DEVE usá-lo IMEDIATAMENTE para responder. 
+26. PROIBIDO responder "Vou pesquisar", "Por favor aguarde" ou "Preciso realizar uma pesquisa". Se os dados estão no contexto, USE-OS.
+27. Se o contexto de pesquisa estiver vazio e você precisar de dados, inclua "trigger": "pesquisa" no seu JSON e peça ao usuário um segundo.
+
+CAPACIDADES DE CRIAÇÃO DE BLOG:
+28. Ao criar um blog, planeje uma estrutura lógica: Título -> Hero -> Intro -> Seções -> Conclusão.
+28. Use grifos [G]...[/G] em palavras-chave no bloco "text".
+29. Sugira cores de destaque (highlightColor) que combinem com o tema.
+30. Se o usuário mandar um link de vídeo, faça o blog baseado no resumo que eu te enviei no contexto.
+
+REGRA FINAL:
+100. AGORA, EXECUTE A TAREFA SOLICITADA SEGUINDO ESTAS REGRAS À RISCA.
 `;
 
         const aiMessages = [
             { role: 'system', content: systemPrompt },
-            ...(messages.map(m => ({ 
-                role: (m.role === 'ai' || m.role === 'assistant' || m.sender === 'Mestre IA') ? 'assistant' : 'user', 
-                content: m.content || m.text || '' 
-            })))
+            ...(messages.map(m => {
+                const role = (m.role === 'ai' || m.role === 'assistant' || m.sender === 'Mestre IA') ? 'assistant' : 'user';
+                let content = m.content || m.text || '';
+                
+                // If it's a vision task and we have an image URL
+                if (imageToAnalyze && role === 'user' && content.includes(imageToAnalyze)) {
+                    return {
+                        role,
+                        content: [
+                            { type: "text", text: content },
+                            { type: "image_url", image_url: { url: imageToAnalyze } }
+                        ]
+                    };
+                }
+                
+                return { role, content };
+            }))
         ];
 
-        // Inject search context as a system reminder at the end if available
-        if (searchContext) {
-            aiMessages.push({ role: 'system', content: `CONTEXTO DE PESQUISA REAL (USE ISTO): ${searchContext}` });
-        }
+        if (ytContext) aiMessages.push({ role: 'system', content: ytContext });
+        if (searchContext) aiMessages.push({ role: 'system', content: searchContext });
+
+        // Switch to a vision-capable model if needed
+        const modelToUse = imageToAnalyze ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile';
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -676,18 +815,13 @@ SEU RETORNO DEVE SER EXATAMENTE NESTE FORMATO:
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
+                model: modelToUse,
                 messages: aiMessages,
                 response_format: { type: 'json_object' }
             })
         });
 
         const data = await response.json();
-        
-        if (!data.choices || data.choices.length === 0 || !data.choices[0].message) {
-            console.error('Groq Error Response:', data);
-            return res.status(500).json({ error: 'Resposta inválida do serviço de IA.' });
-        }
 
         try {
             let rawContent = data.choices[0].message.content;
@@ -1395,6 +1529,24 @@ app.post('/api/admin/mass-follow-handle', adminAuth, async (req, res) => {
         console.error('MASS FOLLOW ERROR:', err);
         res.status(500).json({ error: err.message }); 
     }
+});
+
+// Admin User Management: Verify
+app.post('/api/admin/users/:id/verify', adminAuth, async (req, res) => {
+    try {
+        const { isVerified } = req.body;
+        await User.findByIdAndUpdate(req.params.id, { isVerified: !!isVerified });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Admin User Management: Tokens
+app.post('/api/admin/users/:id/tokens', adminAuth, async (req, res) => {
+    try {
+        const { iaTokens } = req.body;
+        await User.findByIdAndUpdate(req.params.id, { iaTokens: parseInt(iaTokens) || 0 });
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/admin/remove-follow', adminAuth, async (req, res) => {
