@@ -1784,7 +1784,7 @@
         </div>
 
         <!-- Main App Content (Hidden until login) -->
-        <div id="mainApp" class="">
+        <div id="mainApp" class="hidden">
             <header class="app-header glass">
                 <div class="logo">blog 8ano c</div>
                 <div class="header-actions">
@@ -4454,6 +4454,16 @@
                                 style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;"
                                 onclick="aiAssistant.send()">
                                 <i class="fa-solid fa-paper-plane"></i> Montar Blog com IA
+                            </button>
+                            <button class="builder-btn" 
+                                style="width: 100%; margin-top: 10px; font-size: 0.75rem; background: rgba(255,255,255,0.05); color: var(--secondary-text); border: 1px dashed var(--glass-border);"
+                                onclick="builder.injectJSON()">
+                                <i class="fa-solid fa-code"></i> Injetar Código do Mestre
+                            </button>
+                            <button class="builder-btn" 
+                                style="width: 100%; margin-top: 5px; font-size: 0.7rem; background: rgba(0, 0, 0, 0.2); color: var(--accent-color); border: 1px solid var(--accent-color);"
+                                onclick="builder.copyExternalPrompt()">
+                                <i class="fa-solid fa-copy"></i> Copiar Prompt (IA Externa)
                             </button>
                         </div>
                     </div>
@@ -7125,7 +7135,15 @@
                         contentHtml = `<input type="text" class="builder-title-input" value="${block.content}" oninput="builder.updateContent(${index}, this.value)" style="text-align: center; color: ${blockColor}; ${bgStyle} font-weight: 800; font-size: ${block.fontSize > 16 ? fSize : '2.2rem'}; padding: 20px; width: 100%; border-radius: ${bRadius};">`;
                     } else if (block.type === 'list') {
                         let parts = block.content.split('|||');
-                        if (parts.length < 2) parts = [block.content, ''];
+                        if (parts.length < 2) {
+                            if (block.content.includes(':')) {
+                                parts = [block.content.split(':')[0].trim(), block.content.split(':').slice(1).join(':').trim()];
+                            } else if (block.content.includes(' - ')) {
+                                parts = [block.content.split(' - ')[0].trim(), block.content.split(' - ').slice(1).join(' - ').trim()];
+                            } else {
+                                parts = [block.content, ''];
+                            }
+                        }
                         contentHtml = `
                             <div style="display: flex; gap: 15px; ${bgStyle} padding: 15px; border-radius: ${bRadius};">
                                 <input type="text" class="builder-title-input" value="${parts[0]}" oninput="builder.updateListContent(${index}, 'left', this.value)" style="flex: 1; text-align: ${block.align}; color: ${blockColor}; font-weight: 700; font-size: 1.1rem; border: 1px solid var(--glass-border); padding: 10px; border-radius: 6px;">
@@ -7137,7 +7155,15 @@
                     } else if (block.type === 'img') {
                         contentHtml = `<img src="${block.content}" onclick="builder.triggerImageUpload(${index})" class="builder-img-preview" style="margin: ${block.align === 'center' ? '0 auto' : block.align === 'right' ? '0 0 0 auto' : '0 auto 0 0'}; display: block; border-radius: ${bRadius}; ${bgStyle} border: 2px solid ${blockColor === 'var(--text-color)' ? 'transparent' : blockColor}; cursor: pointer; transition: 0.3s; width: 100%;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">`;
                     } else if (block.type === 'button') {
-                        let [text, url] = block.content.split('|||');
+                        let parts = block.content.split('|||');
+                        if (parts.length < 2) {
+                            if (block.content.includes(':')) {
+                                parts = [block.content.split(':')[0].trim(), block.content.split(':').slice(1).join(':').trim()];
+                            } else {
+                                parts = [block.content, '#'];
+                            }
+                        }
+                        let [text, url] = parts;
                         contentHtml = `
                             <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.03); padding: 15px; border-radius: ${bRadius};">
                                 <div style="display: flex; gap: 10px;">
@@ -7364,6 +7390,65 @@
                     btn.innerText = originalText;
                     btn.disabled = false;
                 }
+            },
+
+            injectJSON() {
+                const raw = prompt('Cole o objeto JSON do Mestre IA aqui:');
+                if (!raw) return;
+                try {
+                    // Try to find the JSON inside the pasted text if it's a log format
+                    let clean = raw.trim();
+                    if (clean.includes('JSON Snapshot:')) {
+                        clean = clean.split('JSON Snapshot:')[1].trim();
+                    }
+                    if (clean.includes('{')) {
+                        const start = clean.indexOf('{');
+                        const end = clean.lastIndexOf('}') + 1;
+                        clean = clean.substring(start, end);
+                    }
+
+                    const data = JSON.parse(clean);
+                    const layout = data.layout || (Array.isArray(data) ? data : null);
+                    
+                    if (!layout) throw new Error('Não encontrei o campo "layout" ou uma lista de blocos válida.');
+                    
+                    if (confirm(`Encontrei ${layout.length} blocos. Deseja injetar e substituir o conteúdo atual?`)) {
+                        this.blocks = layout;
+                        if (data.bgColor) this.globalBgColor = data.bgColor;
+                        this.renderAll();
+                        showToast('Código injetado com sucesso! 🚀');
+                    }
+                } catch (e) {
+                    console.error('Erro de injeção:', e);
+                    alert('Erro ao processar JSON: ' + e.message);
+                }
+            },
+
+            copyExternalPrompt() {
+                const prompt = `
+# DIRETRÍZES MESTRE IA PORTAL STUDIO 4.0
+VOCÊ DEVE ATUAR COMO O GERADOR DE BLOGS DO PORTAL STUDIO.
+REGRAS:
+1. RESPONDA APENAS EM JSON VÁLIDO.
+2. ESTRUTURA: { "message": "Resumo", "layout": [], "bgColor": "#hex" }
+3. BLOCOS: title, subtitle, text, img, hero, quote, info, stat, list, spotify, youtube, button.
+4. IMPORTANTE: NUNCA USE ASPAS DUPLAS (") DENTRO DOS TEXTOS. USE ASPAS SIMPLES (').
+5. ESTILIZAÇÃO CRIATIVA (MUITO IMPORTANTE):
+   - **Animações (animation)**: "fadeIn", "slideUp", "zoomIn" - dê movimento aos blocos.
+   - **Alinhamento (align)**: "center" (títulos/impacto), "left" (textos), "right".
+   - **Estilos**: "bold": true, "gradientBg": true (gradiente), "highlight": true (fundo colorido).
+   - Para "list": "Titulo ||| Descrição"
+   - Para "button": "Texto ||| link"
+6. BLOCOS ESPECIAIS: "info" (avisos), "quote" (citações), "stat" (estatísticas), "hero" (imagem full-width).
+
+EXEMPLO DE BLOCO ESTILIZADO:
+{"type": "title", "content": "O Futuro", "align": "center", "animation": "zoomIn", "gradientBg": true}
+
+SEGUIR ESTAS REGRAS À RISCA. GERE O BLOG PARA O TEMA:
+`;
+                navigator.clipboard.writeText(prompt.trim() + " ").then(() => {
+                    showToast('Prompt Mestre copiado! 📋 Cole na IA externa.');
+                });
             }
         };
 
