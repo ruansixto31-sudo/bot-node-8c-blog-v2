@@ -254,6 +254,27 @@
             min-height: 100vh;
         }
 
+        /* Typing Loader */
+        .typing-loader {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+            height: 12px;
+        }
+        .typing-loader span {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            animation: typing 1s infinite ease-in-out;
+        }
+        .typing-loader span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-loader span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(-4px); opacity: 1; }
+        }
+
         /* Header */
         header {
             position: sticky;
@@ -924,6 +945,37 @@
             text-align: right;
             display: block;
         }
+        .token-badge {
+            background: rgba(255,255,255,0.1);
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: var(--accent-color);
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .ai-bubble {
+            padding: 12px 18px;
+            border-radius: 18px;
+            max-width: 85%;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .is-mine .ai-bubble {
+            border-bottom-right-radius: 4px;
+        }
+        
+        .ai-bubble:not(.is-mine) {
+            border-bottom-left-radius: 4px;
+        }
+
         .admin-selector-item { padding: 10px; border-bottom: 1px solid var(--glass-border); cursor: pointer; display: flex; align-items: center; gap: 10px; }
         .admin-selector-item:hover { background: rgba(255,255,255,0.05); }
         .msg-delete-btn { opacity: 0; transition: opacity 0.2s; cursor: pointer; color: rgba(255,255,255,0.4); font-size: 0.7rem; margin-top: 2px; }
@@ -1080,7 +1132,21 @@
                         </div>
 
                         <div id="profileStats" class="profile-stats-v2">
-                            <!-- Stats Cards injected here -->
+                            <!-- User Management Tool (Portal Studio 3.0) -->
+            <div class="glass" style="padding: 20px; margin-bottom: 20px; border-color: #3e92ff;">
+                <h3 style="margin-bottom: 15px;"><i class="fa-solid fa-user-gear" style="margin-right: 8px; color: #3e92ff;"></i>Gestão de Usuários Premium</h3>
+                <p style="font-size: 0.75rem; color: var(--secondary-text); margin-bottom: 15px;">Dê selos de verificado e recarregue tokens de IA dos usuários.</p>
+                <div class="input-group" style="display:flex; gap:10px; margin-bottom: 15px;">
+                    <input type="text" id="adminUserSearchProfile" placeholder="Buscar usuário por @ ou nome..." style="flex:1;">
+                    <button class="btn-primary" style="width:auto; padding:0 20px;" onclick="admin.searchUsersForManagement('Profile')">Buscar 🔍</button>
+                </div>
+                <div id="adminUserListProfile" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                    <!-- User result rows will appear here -->
+                </div>
+            </div>
+
+            <!-- Stats Tool -->
+Cards injected here -->
                         </div>
                     </div>
                     
@@ -1094,6 +1160,7 @@
                 <div class="nav-item active" onclick="ui.goToHome()"><i class="fa-solid fa-house"></i></div>
                 <div class="nav-item" onclick="ui.showPage('searchPage')"><i class="fa-solid fa-magnifying-glass"></i></div>
                 <div class="nav-item" onclick="ui.showPage('messagesPage')"><i class="fa-regular fa-paper-plane"></i></div>
+                <div id="adminNavItem" class="nav-item hidden" onclick="ui.showPage('adminPage')"><i class="fa-solid fa-unlock-keyhole"></i></div>
                 <div class="nav-item" onclick="ui.viewProfile()"><i class="fa-regular fa-user"></i></div>
             </nav>
         </div>
@@ -1293,17 +1360,18 @@
                 <!-- AI Sidebar -->
                 <div id="aiSidebar" class="glass" style="width: 0; min-width: 0; height: 100%; border-left: 1px solid var(--glass-border); display: flex; flex-direction: column; transition: 0.3s ease; overflow: hidden; background: rgba(10,10,10,0.4); backdrop-filter: blur(20px);">
                     <div style="padding: 20px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
-                        <h3 style="font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-robot" style="color: var(--accent-color);"></i> Mestre IA</h3>
+                        <div style="display: flex; flex-direction: column;">
+                            <h3 style="font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-robot" style="color: var(--accent-color);"></i> Mestre IA</h3>
+                            <span id="aiTokenDisplay" class="token-badge"><i class="fa-solid fa-bolt"></i> -- tokens</span>
+                        </div>
                         <button class="block-btn" style="width: 35px; height: 35px;" onclick="aiAssistant.toggle()"><i class="fa-solid fa-chevron-right"></i></button>
                     </div>
                     
-                    <div id="aiChatMessages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;">
+                    <div id="aiChatList" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px;">
                         <div class="ai-msg">
                             Olá! Eu sou o assistente do Portal. Me dê uma ideia de tema ou cole um texto aqui e eu monto todo o blog para você nos mínimos detalhes! ✨
                         </div>
                     </div>
-
-                    <div id="aiTypingIndicator" style="padding: 0 20px 10px 20px; font-size: 0.75rem; color: var(--accent-color); font-weight: 600; display: none;">O Mestre está criando... 🖋️</div>
 
                     <div style="padding: 15px; border-top: 1px solid var(--glass-border); background: rgba(0,0,0,0.2);">
                         <textarea id="aiInput" placeholder="Ex: Crie uma notícia sobre o novo jogo do Homem-Aranha..." 
@@ -1649,10 +1717,215 @@
             posts: [],
             activeChatUser: null,
             selectedMusic: null,
-            conversations: []
+                conversations: []
         };
 
         const socket = io();
+        
+        const auth = {
+            async login() {
+                const username = document.getElementById('loginUser').value;
+                const password = document.getElementById('loginPass').value;
+                try {
+                    const res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        window.location.reload();
+                    } else {
+                        showToast(data.error || 'Credenciais inválidas');
+                    }
+                } catch (e) { showToast('Erro no login'); }
+            },
+            async register() {
+                const fullName = document.getElementById('regName').value;
+                const username = document.getElementById('regUser').value;
+                const password = document.getElementById('regPass').value;
+                try {
+                    const res = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fullName, username, password })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        window.location.reload();
+                    } else {
+                        showToast(data.error || 'Erro no cadastro');
+                    }
+                } catch (e) { showToast('Erro no cadastro'); }
+            },
+            logout() {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.reload();
+            }
+        };
+
+
+        const api = {
+            async fetchPosts() {
+                const res = await fetch('/api/posts', { headers: { 'Authorization': `Bearer ${state.token}` } });
+                state.posts = await res.json();
+                ui.renderPosts();
+            },
+            async toggleLike(postId) {
+                await fetch(`/api/posts/${postId}/like`, { method: 'POST', headers: { 'Authorization': `Bearer ${state.token}` } });
+                this.fetchPosts();
+            },
+            async addComment(postId, text) {
+                await fetch(`/api/posts/${postId}/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
+                    body: JSON.stringify({ text })
+                });
+                document.getElementById('sheetCommentInput').value = '';
+                ui.showCommentsModal(postId);
+            },
+            async getUsers(includeFakes = false) {
+                const res = await fetch(`/api/users${includeFakes ? '?includeFakes=true' : ''}`, { headers: { 'Authorization': `Bearer ${state.token}` } });
+                return await res.json();
+            },
+            async getMessages(userId) {
+                const res = await fetch(`/api/messages/${userId}`, { headers: { 'Authorization': `Bearer ${state.token}` } });
+                return await res.json();
+            },
+            async getGroupMessages(convId) {
+                const res = await fetch(`/api/conversations/${convId}/messages`, { headers: { 'Authorization': `Bearer ${state.token}` } });
+                return await res.json();
+            },
+            async handleTyping() {
+                socket.emit('typing', { recipientId: state.activeChatUser?.id });
+            },
+            async publishPost(postId) {
+                if(!confirm('Deseja publicar este rascunho agora?')) return;
+                try {
+                    const res = await fetch(`/api/posts/${postId}`, {
+                        method: 'PUT',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'Authorization': `Bearer ${state.token}` 
+                        },
+                        body: JSON.stringify({ status: 'published' })
+                    });
+                    if(res.ok) {
+                        showToast('Post publicado com sucesso! 🚀');
+                        this.fetchPosts();
+                    } else {
+                        const err = await res.json();
+                        showToast('Erro ao publicar: ' + (err.error || 'Erro desconhecido'));
+                    }
+                } catch(e) {
+                    console.error('Publish error:', e);
+                    showToast('Erro técnico ao publicar.');
+                }
+            }
+        };
+
+        const aiAssistant = {
+            messages: [],
+            isThinking: false,
+            isOpen: false,
+            toggle() {
+                const sidebar = document.getElementById('aiSidebar');
+                const mainArea = document.getElementById('builderMainArea');
+                if(!sidebar) return;
+                
+                this.isOpen = !this.isOpen;
+                if(this.isOpen) {
+                    sidebar.style.width = '350px';
+                    sidebar.style.minWidth = '350px';
+                    this.updateTokenDisplay();
+                } else {
+                    sidebar.style.width = '0';
+                    sidebar.style.minWidth = '0';
+                }
+            },
+            async updateTokenDisplay() {
+                const res = await fetch('/api/user/me', { headers: { 'Authorization': `Bearer ${state.token}` } });
+                const user = await res.json();
+                const el = document.getElementById('aiTokenDisplay');
+                if(el) el.innerHTML = `<i class="fa-solid fa-bolt"></i> ${user.iaTokens || 0} tokens`;
+            },
+            async send() {
+                const input = document.getElementById('aiInput');
+                const text = input.value.trim();
+                if(!text || this.isThinking) return;
+
+                this.messages.push({ role: 'user', content: text });
+                input.value = '';
+                this.isThinking = true;
+                this.render();
+
+                try {
+                    const res = await fetch('/api/ai/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
+                        body: JSON.stringify({ messages: this.messages, currentLayout: builder.blocks })
+                    });
+                    
+                    if(!res.ok) {
+                        const err = await res.json();
+                        throw new Error(err.message || 'Erro na IA');
+                    }
+
+                    const data = await res.json();
+                    
+                    // If trigger indicates deep thinking needed
+                    if (data.trigger === 'pesquisa' || data.trigger === 'vision' || data.trigger === 'youtube') {
+                        const loaderText = document.querySelector('.typing-loader + small');
+                        if (loaderText) loaderText.innerText = 'Mestre IA está consultando fontes profundas...';
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+
+                    this.messages.push({ role: 'ai', content: data.message });
+                    
+                    if(data.layout && data.layout.length > 0) {
+                        builder.blocks = data.layout;
+                        builder.renderAll();
+                        showToast('Layout atualizado pelo Mestre! ✨');
+                    }
+
+                    this.updateTokenDisplay();
+                } catch (e) {
+                    this.messages.push({ role: 'ai', content: '❌ ' + e.message });
+                } finally {
+                    this.isThinking = false;
+                    this.render();
+                }
+            },
+            render() {
+                const chatArea = document.getElementById('aiChatMessages');
+                if(!chatArea) return;
+
+                chatArea.innerHTML = this.messages.map(m => `
+                    <div class="message-container ${m.role === 'user' ? 'is-mine' : ''}" style="display: flex; flex-direction: column; align-items: ${m.role === 'user' ? 'flex-end' : 'flex-start'}; gap: 5px;">
+                        <div class="ai-bubble" style="background: ${m.role === 'user' ? 'var(--accent-color)' : 'rgba(255,255,255,0.05)'}">
+                            ${m.content}
+                        </div>
+                    </div>
+                `).join('');
+
+                if(this.isThinking) {
+                    chatArea.innerHTML += `
+                        <div class="message-container">
+                            <div class="ai-bubble" style="background: rgba(255,255,255,0.05); display: flex; align-items: center; gap: 10px;">
+                                <div class="typing-loader"></div> <span>Pesquisando...</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                chatArea.scrollTop = chatArea.scrollHeight;
+            }
+        };
 
         // UI Controller
         const ui = {
@@ -1666,7 +1939,9 @@
             },
             async showPage(pageId) {
                 document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-                document.getElementById(pageId).classList.remove('hidden');
+                const page = document.getElementById(pageId);
+                page.classList.remove('hidden');
+                page.classList.add('page-transition-fade');
                 
                 document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
                 
@@ -1681,15 +1956,24 @@
                     document.querySelectorAll('.nav-item')[1].classList.add('active');
                     search.init();
                 }
-                if(pageId === 'profilePage') {
-                    const profileIcon = document.querySelectorAll('.nav-item')[3];
-                    if (profileIcon) profileIcon.classList.add('active');
-                }
                 if(pageId === 'adminPage') {
-                    admin.fetchStats();
+                    const adminTab = document.getElementById('adminNavItem');
+                    if(adminTab) adminTab.classList.add('active');
                     admin.load();
                 }
+                if(pageId === 'profilePage') {
+                    const profileIcon = document.querySelectorAll('.nav-item').item(document.querySelectorAll('.nav-item').length - 1);
+                    if (profileIcon) profileIcon.classList.add('active');
+                }
                 this.initScrollReveal();
+            },
+            initNav() {
+                const adminTab = document.getElementById('adminNavItem');
+                if(adminTab && state.user && state.user.isAdmin) {
+                    adminTab.classList.remove('hidden');
+                } else if(adminTab) {
+                    adminTab.classList.add('hidden');
+                }
             },
             toggleNotifPanel() {
                 const panel = document.getElementById('notifPanel');
@@ -1818,6 +2102,9 @@
                 avatarImg.onerror = () => avatarImg.src = getInitials(username);
                 
                 document.getElementById('profileFullName').innerText = profile.fullName || username;
+                if(profile.isVerified) {
+                    document.getElementById('profileFullName').innerHTML += ' <i class="fa-solid fa-circle-check verified-badge"></i>';
+                }
                 if(profile.isFake) {
                     document.getElementById('profileFullName').innerHTML += ' <span class="badge-system">SISTEMA</span>';
                 }
@@ -1872,6 +2159,7 @@
 
                     return `
                         <div class="grid-item" onclick="ui.showPostDetail('${p._id}')">
+                            ${p.status === 'draft' ? `<div class="grid-item-type-icon" style="right: 40px; background: #ffa500;"><i class="fa-solid fa-file-pen"></i></div>` : ''}
                             ${typeIcon ? `<div class="grid-item-type-icon">${typeIcon}</div>` : ''}
                             <img src="${previewUrl}" alt="Post">
                             <div class="grid-item-overlay">
@@ -2216,24 +2504,17 @@
                 
                 const getBuilderBlogCardHtml = (post) => {
                     let bTitle = post.groupName || 'Reportagem';
-                    let bText = '';
                     let bImg = 'https://images.unsplash.com/photo-1495020689067-958852a7765e?q=80&w=2069&auto=format&fit=crop';
                     if (post.layout && post.layout.length > 0) {
                         const tBlock = post.layout.find(b => b.type === 'title');
                         if (tBlock) bTitle = tBlock.content;
                         const iBlock = post.layout.find(b => b.type === 'img' || b.type === 'hero');
                         if (iBlock) bImg = iBlock.content;
-                        const txtBlock = post.layout.find(b => b.type === 'text');
-                        if (txtBlock) bText = txtBlock.content.substring(0, 80) + '...';
                     }
                     return `
                     <div style="position: relative; border-radius: 20px; overflow: hidden; margin-bottom: 10px; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" onclick="window.location.href='/blog.html?postId=${post._id}'">
                         <img src="${bImg}" style="width: 100%; height: 350px; object-fit: cover; display: block; border-radius: 20px;">
                         <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.95) 80%); padding: 30px 20px 20px 20px; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;">
-                            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
-                                <div style="background: var(--accent-color); color: white; display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">🗞️ TRABALHO</div>
-                                ${post.status === 'draft' ? '<div style="background: gold; color: black; display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; animation: pulse 1s infinite;"><i class="fa-solid fa-file-pen"></i> RASCUNHO</div>' : ''}
-                            </div>
                             <h2 style="font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: white; line-height: 1.1; margin-bottom: 8px; text-shadow: 2px 2px 5px rgba(0,0,0,0.5);">${bTitle}</h2>
                             <div style="display: flex; align-items: center; gap: 15px; font-size: 0.8rem; color: var(--secondary-text);">
                                 <span style="display: flex; align-items: center; gap: 5px; color: white;"><img src="${getAvatar(post.user?.username, post.user?.avatar)}" style="width: 18px; height: 18px; border-radius: 50%;"> ${post.user?.username || 'user'}</span>
@@ -2248,130 +2529,66 @@
 
                 try {
                     if (!Array.isArray(state.posts)) {
-                        console.warn('state.posts is not an array:', state.posts);
                         list.innerHTML = '<p style="text-align: center; color: var(--secondary-text); margin-top: 50px;">Nenhuma postagem ainda.</p>';
                         return;
                     }
                     list.innerHTML = state.posts.map(post => {
-                        if(!post.user) return ''; // Skip posts with invalid users
-                    return `
-                    <div class="post-card glass" style="overflow: hidden; margin-bottom: 25px;">
-                        <div class="post-header" style="padding: 12px 15px; border-bottom: 1px solid var(--glass-border);">
-                            <div class="post-user" onclick="ui.viewProfile('${post.user._id}')" style="cursor:pointer; display: flex; align-items: center; gap: 10px;">
-                                <img src="${getAvatar(post.user.username, post.user.avatar)}" class="post-avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
-                                <div class="post-info">
-                                    <h4 style="font-size: 0.9rem; font-weight: 600; display: flex; align-items: center;">
-                                        ${post.user.username} ${post.user.isFake ? '<span class="badge-system">SISTEMA</span>' : ''}
-                                    </h4>
-                                    <p style="font-size: 0.7rem; color: var(--secondary-text);">${new Date(post.createdAt).toLocaleDateString()}</p>
-                                </div>
-                            </div>
-                                ${(post.user._id === state.user.id || state.user.isAdmin) ? `
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        ${post.status === 'draft' ? '<span style="background: gold; color: black; font-size: 0.6rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; animation: pulse 1s infinite;"><i class="fa-solid fa-file-pen"></i> RASCUNHO</span>' : ''}
-                                        <i class="fa-solid fa-pen-to-square" 
-                                           onclick="${post.isBuilderBlog ? `builder.editById('${post._id}')` : `api.editPost('${post._id}', '${(post.caption || '').replace(/'/g, "\\'")}')`}" 
-                                           style="font-size: 1.1rem; color: var(--secondary-text); cursor:pointer;"></i>
-                                        <i class="fa-solid fa-xmark btn-delete" onclick="api.deletePost('${post._id}')" style="font-size: 1.3rem; color: var(--accent-color); cursor:pointer;"></i>
+                        if(!post.user) return ''; 
+                        return `
+                        <div class="post-card glass" style="overflow: hidden; margin-bottom: 25px;">
+                            <div class="post-header" style="padding: 12px 15px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
+                                <div class="post-user" onclick="ui.viewProfile('${post.user._id}')" style="cursor:pointer; display: flex; align-items: center; gap: 10px;">
+                                    <img src="${getAvatar(post.user.username, post.user.avatar)}" class="post-avatar" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                                    <div class="post-info">
+                                        <h4 style="font-size: 0.9rem; font-weight: 600; display: flex; align-items: center;">
+                                            ${post.user.username} ${post.user.isFake ? '<span class="badge-system">SISTEMA</span>' : ''}
+                                        </h4>
+                                        <p style="font-size: 0.7rem; color: var(--secondary-text);">${new Date(post.createdAt).toLocaleDateString()}</p>
                                     </div>
-                                ` : (post.status === 'draft' ? '<span style="background: gold; color: black; font-size: 0.6rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;"><i class="fa-solid fa-file-pen"></i> RASCUNHO</span>' : '')}
+                                </div>
                                 <div style="position: relative;">
                                     <i class="fa-solid fa-ellipsis" style="cursor: pointer; padding: 5px;" onclick="ui.togglePostMenu('${post._id}')"></i>
                                     <div id="post-menu-${post._id}" class="post-options-menu glass">
-                                        <div class="post-options-item" onclick="ui.copyPostId('${post._id}')">
-                                            <i class="fa-solid fa-copy"></i> Copiar ID
-                                        </div>
-                                        ${(post.user._id === state.user.id || state.user.isAdmin) && post.isBuilderBlog ? `
-                                            <div class="post-options-item" onclick="builder.editById('${post._id}')">
-                                                <i class="fa-solid fa-pen-nib"></i> Editar Estúdio
-                                            </div>
-                                        ` : ''}
-                                        ${(post.isBuilderBlog || (post.participants && post.participants.length > 0)) ? `
-                                            <div class="post-options-item" onclick="ui.goToPostGroup('${post._id}')">
-                                                <i class="fa-solid fa-users"></i> Ir para o Grupo
-                                            </div>
-                                        ` : ''}
-                                        <div class="post-options-item" onclick="ui.showShareModal('${post._id}')">
-                                            <i class="fa-solid fa-share-nodes"></i> Compartilhar
-                                        </div>
-                                        <div class="post-options-item" onclick="ui.togglePostMenu('${post._id}')" style="color: var(--secondary-text);">
-                                            <i class="fa-solid fa-xmark"></i> Fechar
-                                        </div>
+                                        ${post.status === 'draft' ? `<div class="post-options-item" onclick="api.publishPost('${post._id}')" style="color: var(--accent-color); font-weight: 700;"><i class="fa-solid fa-paper-plane"></i> PUBLICAR</div>` : ''}
+                                        <div class="post-options-item" onclick="ui.copyPostId('${post._id}')"><i class="fa-solid fa-copy"></i> Copiar ID</div>
+                                        <div class="post-options-item" onclick="ui.togglePostMenu('${post._id}')" style="color: var(--secondary-text);"><i class="fa-solid fa-xmark"></i> Fechar</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        ${post.isBuilderBlog ? getBuilderBlogCardHtml(post) : `
-                            ${post.title ? `
-                            <div style="padding: 15px; text-align: center;">
-                                <h2 style="font-weight: 800; font-size: 1.3rem; color: var(--accent-color); line-height: 1.2;">${post.title}</h2>
-                            </div>` : ''}
-
-                            <div class="post-media" style="position: relative;">
-                                ${post.media && post.media[0] ? (post.media[0].type === 'video' ? 
-                                    `<video src="${post.media[0].url}" controls style="width: 100%; border-radius: 0;"></video>` : 
-                                    `<img src="${post.media[0].url}" style="width: 100%; border-radius: 0;">`) : ''
-                                }
-                            </div>
-                        `}
-
-                        <div class="post-actions" style="padding: 12px 15px 5px 15px;">
-                            <div class="action-btns" style="display: flex; gap: 18px; font-size: 1.4rem;">
-                                <i class="${post.likes.includes(state.user.id) ? 'fa-solid' : 'fa-regular'} fa-heart" 
-                                   style="color: ${post.likes.includes(state.user.id) ? 'var(--accent-color)' : ''}; cursor: pointer;" 
-                                   onclick="api.toggleLike('${post._id}')"></i>
-                                <i class="fa-regular fa-comment" style="cursor: pointer;" onclick="ui.showCommentsModal('${post._id}')"></i>
-                                <i class="fa-regular fa-paper-plane" style="cursor: pointer;" onclick="ui.showShareModal('${post._id}')"></i>
-                            </div>
-                        </div>
-
-                        <div class="post-details" style="padding: 0 15px 15px 15px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <p class="likes-count" style="font-weight: 600; font-size: 0.85rem; margin: 0;">${post.likes.length} curtidas</p>
-                                <p style="font-weight: 600; font-size: 0.8rem; color: var(--secondary-text); margin: 0;">
-                                    <i class="fa-regular fa-eye" style="font-size: 0.9rem;"></i> ${post.views?.length || 0}
-                                </p>
-                            </div>
-                            
-                            ${post.isBuilderBlog ? `
-                                <div class="glass" style="padding: 12px; margin-top: 12px; border-left: 3px solid var(--accent-color); border-radius: 10px;">
-                                    <p style="font-size: 0.8rem; font-weight: 700; color: white; display: flex; align-items: center; gap: 8px;">
-                                        <i class="fa-solid fa-users" style="color: var(--accent-color);"></i> ${post.groupName}
-                                    </p>
-                                    <div style="font-size: 0.75rem; color: var(--secondary-text); margin-top: 6px; display: flex; flex-wrap: wrap; gap: 5px;">
-                                        <span style="font-weight: 600;">Integrantes:</span> 
-                                        ${post.participants.map(p => `<span style="color: var(--accent-color); cursor: pointer; text-decoration: underline;" onclick="ui.viewProfile('${p._id || p}')">${p.fullName || p.username || 'Membro'}</span>`).join(', ')}
-                                    </div>
+                            ${post.isBuilderBlog ? getBuilderBlogCardHtml(post) : `
+                                <div class="post-media" style="position: relative;">
+                                    ${post.media && post.media[0] ? (post.media[0].type === 'video' ? 
+                                        `<video src="${post.media[0].url}" controls style="width: 100%; border-radius: 0;"></video>` : 
+                                        `<img src="${post.media[0].url}" style="width: 100%; border-radius: 0;">`) : ''
+                                    }
                                 </div>
-                            ` : `
-                                <p class="caption" style="font-size: 0.9rem; line-height: 1.4;"><span style="font-weight: 700; margin-right: 5px; cursor: pointer;" onclick="ui.viewProfile('${post.user._id}')">${post.user.username}</span> ${post.caption}</p>
-                                ${post.description ? `<p style="font-size: 0.9rem; color: var(--text-color); opacity: 0.9; line-height: 1.5; margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 10px;">${post.description}</p>` : ''}
                             `}
 
-                            ${post.adminNote ? `
-                            <div style="margin-top: 12px; padding: 12px; background: rgba(255, 62, 62, 0.08); border-left: 3px solid var(--accent-color); border-radius: 8px;">
-                                <small style="display: block; font-weight: 800; color: var(--accent-color); font-size: 0.65rem; text-transform: uppercase; margin-bottom: 4px;">Nota do Administrador</small>
-                                <p style="font-size: 0.85rem; font-style: italic; color: var(--text-color);">${post.adminNote}</p>
-                            </div>` : ''}
-
-                            ${state.user.isAdmin ? `<button onclick="api.updateAdminNote('${post._id}')" style="background: transparent; border: 1px dashed var(--accent-color); color: var(--accent-color); font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; margin-top: 10px; cursor: pointer;"><i class="fa-solid fa-pen-to-square"></i> Editar Nota do Admin</button>` : ''}
-
-                            ${post.music && post.music.previewUrl ? `
-                            <div class="music-player" style="margin-top: 12px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px; display: flex; align-items: center; gap: 12px;">
-                                <i class="fa-solid fa-music" style="color:var(--accent-color); font-size: 0.9rem;"></i>
-                                <div class="track-info" style="flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.8rem;">
-                                    <b style="color: var(--text-color);">${post.music.title || ''}</b> - ${post.music.artist || ''}
+                            <div class="post-actions" style="padding: 12px 15px 5px 15px;">
+                                <div class="action-btns" style="display: flex; gap: 18px; font-size: 1.4rem;">
+                                    <i class="${post.likes.includes(state.user.id) ? 'fa-solid' : 'fa-regular'} fa-heart" 
+                                       style="color: ${post.likes.includes(state.user.id) ? 'var(--accent-color)' : ''}; cursor: pointer;" 
+                                       onclick="api.toggleLike('${post._id}')"></i>
+                                    <i class="fa-regular fa-comment" style="cursor: pointer;" onclick="ui.showCommentsModal('${post._id}')"></i>
                                 </div>
-                                <audio src="${post.music.previewUrl}" controls style="height: 24px; width: 120px;"></audio>
-                            </div>` : ''}
-                            
-                            <p style="font-size: 0.8rem; color: var(--secondary-text); margin-top: 12px; cursor: pointer; display: inline-block;" onclick="ui.showCommentsModal('${post._id}')">
-                                Ver todos os ${post.comments?.length || 0} comentários
-                            </p>
-                        </div>
-                    </div>
-                `;
+                            </div>
+
+                            <div class="post-details" style="padding: 0 15px 15px 15px;">
+                                <p class="likes-count" style="font-weight: 600; font-size: 0.85rem; margin: 0 0 8px 0;">${post.likes.length} curtidas</p>
+                                <p class="caption" style="font-size: 0.9rem; line-height: 1.4;"><span style="font-weight: 700; margin-right: 5px; cursor: pointer;" onclick="ui.viewProfile('${post.user._id}')">${post.user.username}</span> ${post.caption || ''}</p>
+                                ${post.status === 'draft' ? `
+                                    <div style="margin-top: 15px; padding-top: 10px; border-top: 1px dotted var(--glass-border); display: flex; align-items: center; justify-content: space-between;">
+                                        <span class="badge-system" style="background: rgba(255,165,0,0.2); color: #ffa500; border: 1px solid #ffa500; padding: 4px 8px; font-size: 0.7rem; font-weight: 800; border-radius: 6px;">
+                                            <i class="fa-solid fa-file-pen"></i> RASCUNHO
+                                        </span>
+                                        <button class="btn-primary" style="width: auto; padding: 6px 15px; font-size: 0.8rem; border-radius: 8px;" onclick="api.publishPost('${post._id}')">
+                                            <i class="fa-solid fa-paper-plane"></i> Publicar Agora
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>`;
                     }).join('');
                     ui.initScrollReveal();
                 } catch (e) {
@@ -2390,6 +2607,7 @@
             },
             togglePostMenu(postId) {
                 const el = document.getElementById(`post-menu-${postId}`);
+                if (!el) return;
                 const isOpen = el.classList.contains('open');
                 document.querySelectorAll('.post-options-menu').forEach(m => m.classList.remove('open'));
                 if(!isOpen) el.classList.add('open');
@@ -2445,1635 +2663,140 @@
                         let [text, url] = block.content.split('|||');
                         content = `<div style="text-align: ${block.align}"><a href="${url}" target="_blank" class="builder-btn" style="${bgStyle} color: ${blockColor}; border-radius: ${bRadius}; font-size: ${fSize};">${text}</a></div>`;
                     } else if (block.type === 'youtube' || block.type === 'video') {
-                        const ytUrl = builder.getYoutubeEmbed(block.content);
+                        const ytUrl = builder.getYoutubeEmbed ? builder.getYoutubeEmbed(block.content) : block.content;
                         content = `<div class="builder-video-container" style="border-radius: ${bRadius}"><iframe src="${ytUrl}" frameborder="0" allowfullscreen></iframe></div>`;
                     }
-
-                    html += `
-                        <div class="${animClass}" style="width: 100%;">
-                            ${content}
-                        </div>
-                    `;
+                    html += `<div class="${animClass}" style="width: 100%;">${content}</div>`;
                 });
-
-
-                html += `</div>`;
-                return html;
+                return html + `</div>`;
+            },
+            initScrollReveal() {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) entry.target.classList.add('is-visible');
+                    });
+                }, { threshold: 0.1 });
+                document.querySelectorAll('[class*="anim-"]').forEach(el => observer.observe(el));
             }
         };
 
-        // API Calls
-        const system = {
-            isLocked: false,
-            async checkStatus() {
-                const res = await fetch('/api/system/status');
-                const data = await res.json();
-                this.isLocked = data.isLocked;
-                
-                // If locked and no master token, show overlay
-                const token = localStorage.getItem('master_bypass');
-                if (this.isLocked && !token) {
-                    document.getElementById('lockdownOverlay').classList.add('active');
-                } else if (token) {
-                    // Inject bypass header for all future requests
-                    this.setupBypass(token);
-                }
-            },
-            async unlock() {
-                const code = document.getElementById('lockdownInput').value;
-                const res = await fetch('/api/system/unlock', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    localStorage.setItem('master_bypass', data.token);
-                    document.getElementById('lockdownOverlay').classList.remove('active');
-                    showToast('Portal Desbloqueado! 🔓');
-                    this.setupBypass(data.token);
-                    location.reload(); // Refresh to catch all changes
-                } else {
-                    showToast('Código Inválido ❌');
-                }
-            },
-            setupBypass(token) {
-                const originalFetch = window.fetch;
-                window.fetch = function() {
-                    let [resource, config] = arguments;
-                    if (!config) config = {};
-                    if (!config.headers) config.headers = {};
-                    config.headers['x-unlock-token'] = token;
-                    return originalFetch(resource, config);
-                };
-            }
-        };
-
-        const api = {
-            async fetchPosts() {
-                try {
-                    const res = await fetch('/api/posts', {
-                        headers: { 'Authorization': `Bearer ${state.token}` }
-                    });
-                    if (!res.ok) {
-                        if (res.status === 401) {
-                            console.error('Unauthorized access to /api/posts');
-                        }
-                        state.posts = [];
-                    } else {
-                        state.posts = await res.json();
-                    }
-                    ui.renderPosts();
-                    ui.initScrollReveal();
-                } catch (e) {
-                    console.error('Fetch posts error:', e);
-                    state.posts = [];
-                    ui.renderPosts();
-                }
-            },
-            async toggleLike(postId) {
-                const res = await fetch(`/api/posts/${postId}/like`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${state.token}` }
-                });
-                if(res.ok) {
-                    this.fetchPosts();
-                    if(!document.getElementById('reelsPage').classList.contains('hidden')) {
-                        reels.fetch();
-                    }
-                }
-            },
-            async addComment(postId, providedText = null) {
-                const text = providedText || document.getElementById(`comment-input-${postId}`).value;
-                if(!text) return;
-
-                const res = await fetch(`/api/posts/${postId}/comment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ text })
-                });
-                if(res.ok) {
-                    if(!providedText) document.getElementById(`comment-input-${postId}`).value = '';
-                    else document.getElementById('sheetCommentInput').value = '';
-                    await this.fetchPosts();
-                    if(!document.getElementById('reelsPage').classList.contains('hidden')) reels.fetch();
-                    if(document.getElementById('commentsSheet').classList.contains('open')) {
-                        ui.showCommentsModal(postId);
-                    }
-                }
-            },
-            async getGroupMessages(conversationId) {
-                const res = await fetch(`/api/conversations/${conversationId}/messages`, {
-                    headers: { 'Authorization': `Bearer ${state.token}` }
-                });
-                return await res.json();
-            },
-            async createGroupConversation() {
-                const name = document.getElementById('groupDMName').value;
-                if(!name) return showToast('Por favor, dê um nome ao grupo');
-                
-                const checked = Array.from(document.querySelectorAll('.group-participant-check:checked')).map(cb => cb.value);
-                if(checked.length < 2) return showToast('Selecione ao menos 2 participantes');
-                
-                const res = await fetch('/api/conversations/group', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ name, participants: checked })
-                });
-                
-                if(res.ok) {
-                    const group = await res.json();
-                    ui.closeModal('groupDMModal');
-                    ui.renderMessagesPage();
-                    showToast(`Grupo "${name}" criado!`);
-                    ui.openGroupChat(group._id, name);
-                } else {
-                    const err = await res.json();
-                    showToast(err.error || 'Erro ao criar grupo');
-                }
-            },
-            async sendMessage() {
-                const content = document.getElementById('chatInput').value;
-                if (!content) return;
-
-                const body = { content };
-                if (state.activeConversationId) {
-                    body.conversationId = state.activeConversationId;
-                } else {
-                    body.receiver = state.activeChatUser.id;
-                }
-
-                socket.emit('sendMessage', { ...body, token: state.token });
-                document.getElementById('chatInput').value = '';
-            },
-            async leaveGroup() {
-                if(!state.activeConversationId) return;
-                if(!confirm('Tem certeza que deseja sair deste grupo? Se for o último membro, ele será apagado.')) return;
-                try {
-                    const res = await fetch(`/api/conversations/group/${state.activeConversationId}/leave`, {
-                        method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${state.token}` }
-                    });
-                    if(res.ok) {
-                        showToast('Você saiu do grupo.');
-                        ui.showPage('messagesPage');
-                        ui.renderMessagesPage();
-                    } else {
-                        const err = await res.json();
-                        showToast(err.error || 'Erro ao sair do grupo');
-                    }
-                } catch(e) { console.error(e); }
-            },
-            async showGroupDetails() {
-                if(!state.activeConversationId || document.getElementById('btnLeaveGroup').classList.contains('hidden')) return;
-                
-                try {
-                    const res = await fetch(`/api/conversations/group/${state.activeConversationId}/details`, {
-                        headers: { 'Authorization': `Bearer ${state.token}` }
-                    });
-                    const data = await res.json();
-                    if(!res.ok) return showToast(data.error || 'Erro ao carregar detalhes');
-                    
-                    const isAdmin = data.admins?.some(a => a._id === state.user.id) || (!data.admins || data.admins.length === 0);
-                    
-                    const list = document.getElementById('groupDetailsContent');
-                    list.innerHTML = data.participants.map(p => {
-                        const isUserAdmin = data.admins?.some(a => a._id === p._id);
-                        
-                        let adminBadge = isUserAdmin ? '<span style="font-size: 0.65rem; background: gold; color: black; padding: 2px 5px; border-radius: 4px; font-weight: 800; margin-left: 5px;">👑 ADMIN</span>' : '';
-                        
-                        let promoteBtn = '';
-                        if(isAdmin && !isUserAdmin) {
-                            promoteBtn = `<button style="background: rgba(255,255,255,0.1); border:none; color:white; padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; cursor:pointer;" onclick="api.promoteToAdmin('${p._id}')">Tornar Admin</button>`;
-                        }
-                        
-                        return `
-                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <img src="${getAvatar(p.username, p.avatar)}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
-                            <div style="flex: 1;">
-                                <div style="font-weight: 600; font-size: 0.9rem;">${p.username} ${adminBadge}</div>
-                                <div style="font-size: 0.75rem; color: var(--secondary-text);">${p.fullName}</div>
-                            </div>
-                            ${promoteBtn}
-                        </div>
-                        `;
-                    }).join('');
-                    
-                    if(isAdmin) document.getElementById('groupAdminActions').classList.remove('hidden');
-                    else document.getElementById('groupAdminActions').classList.add('hidden');
-                    
-                    ui.showModal('groupDetailsModal');
-                } catch(e) { console.error(e); }
-            },
-            async promoteToAdmin(userId) {
-                if(!confirm('Tornar este usuário um administrador do grupo?')) return;
-                try {
-                    const res = await fetch(`/api/conversations/group/${state.activeConversationId}/admins`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                        body: JSON.stringify({ targetUserId: userId })
-                    });
-                    if(res.ok) {
-                        showToast('Novo admin definido!');
-                        this.showGroupDetails(); // refresh details
-                    } else {
-                        const data = await res.json();
-                        showToast(data.error || 'Erro ao definir admin');
-                    }
-                } catch(e) { console.error(e); }
-            },
-            async deleteGroup() {
-                if(!confirm('ATENÇÃO: Isso excluirá o grupo e todas as mensagens permanentemente para TODOS os participantes. Continuar?')) return;
-                try {
-                    const res = await fetch(`/api/conversations/group/${state.activeConversationId}`, {
-                        method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${state.token}` }
-                    });
-                    if(res.ok) {
-                        showToast('Grupo apagado eternamente.');
-                        ui.closeModal('groupDetailsModal');
-                        ui.showPage('messagesPage');
-                        ui.renderMessagesPage();
-                    } else {
-                        const err = await res.json();
-                        showToast(err.error || 'Erro ao excluir grupo');
-                    }
-                } catch(e) { console.error(e); }
-            },
-            handleTyping() {
-                const targetId = state.activeConversationId || (state.activeChatUser ? state.activeChatUser.id : null);
-                if(!targetId) return;
-                socket.emit('typing', { senderId: state.user.id, receiverId: targetId, conversationId: state.activeConversationId });
-                clearTimeout(this.typingTimer);
-                this.typingTimer = setTimeout(() => {
-                    socket.emit('stopTyping', { senderId: state.user.id, receiverId: targetId, conversationId: state.activeConversationId });
-                }, 2000);
-            },
-            async sharePostToUser(postId, receiverId) {
-                const post = state.posts.find(p => p._id === postId);
-                const content = `Confira este post de @${post.user.username}: [Post Link]`;
-                const res = await fetch('/api/messages', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ receiverId, content })
-                });
-                if(res.ok) {
-                    showToast('Post compartilhado no Direct! ✅');
-                    ui.closeModal('shareModal');
-                }
-            },
-            async forceFollowByHandle() {
-                const handle = document.getElementById('superFollowHandle').value;
-                if(!handle) return showToast('Digite um @username');
-                
-                const res = await fetch('/api/admin/mass-follow-handle', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ handle })
-                });
-                if(res.ok) {
-                    const data = await res.json();
-                    showToast(`Sucesso! ${data.count} contas agora seguem o alvo. 🚀`);
-                } else {
-                    showToast('Erro ao executar impulso.');
-                }
-            },
-            async forceUnfollow() {
-                const followerUser = document.getElementById('unfollowFollower').value;
-                const followingUser = document.getElementById('unfollowTarget').value;
-                if(!followerUser || !followingUser) return showToast('Preencha ambos os campos');
-
-                const res = await fetch('/api/admin/remove-follow', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ followerUser, followingUser })
-                });
-                if(res.ok) {
-                    const data = await res.json();
-                    showToast(data.message);
-                    document.getElementById('unfollowFollower').value = '';
-                    document.getElementById('unfollowTarget').value = '';
-                } else {
-                    const err = await res.json();
-                    showToast(err.error || 'Erro ao remover seguimento');
-                }
-            },
-            async updateAdminNote(postId) {
-                const note = prompt('Digite a nota do administrador:');
-                if(note === null) return;
-                const res = await fetch(`/api/admin/posts/${postId}/note`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ note })
-                });
-                if(res.ok) this.fetchPosts();
-            },
-            async editPost(postId, oldCaption) {
-                const newCaption = prompt('Editar legenda:', oldCaption);
-                if (newCaption === null || newCaption === oldCaption) return;
-                const res = await fetch(`/api/posts/${postId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ caption: newCaption })
-                });
-                if (res.ok) {
-                    showToast('Post atualizado! ✅');
-                    this.fetchPosts();
-                }
-            },
-            async deletePost(postId) {
-                if(!confirm('Deseja excluir este post permanently?')) return;
-                const res = await fetch(`/api/posts/${postId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${state.token}` }
-                });
-                if(res.ok) this.fetchPosts();
-            },
-            async updateProfile() {
-                const file = document.getElementById('editAvatar').files[0];
-                const fullName = document.getElementById('editName').value;
-                const bio = document.getElementById('editBio').value;
-
-                const btn = document.querySelector('#editProfileModal .btn-primary');
-                btn.innerText = 'Salvando...';
-
-                const formData = new FormData();
-                if(file) formData.append('avatar', file);
-                formData.append('fullName', fullName);
-                formData.append('bio', bio);
-
-                try {
-                    const res = await fetch('/api/users/profile', {
-                        method: 'PUT',
-                        headers: { 'Authorization': `Bearer ${state.token}` },
-                        body: formData
-                    });
-                    if(res.ok) {
-                        const updatedUser = await res.json();
-                        localStorage.setItem('user', JSON.stringify({
-                            id: updatedUser._id,
-                            username: updatedUser.username,
-                            fullName: updatedUser.fullName,
-                            avatar: updatedUser.avatar,
-                            bio: updatedUser.bio
-                        }));
-                        state.user = JSON.parse(localStorage.getItem('user'));
-                        ui.closeModal('editProfileModal');
-                        ui.renderProfile(state.user.username);
-                    }
-                } catch (e) { alert('Erro ao atualizar perfil'); }
-                finally { btn.innerText = 'Salvar'; }
-            },
-            async getUsers() {
-                const res = await fetch('/api/users', {
-                    headers: { 'Authorization': `Bearer ${state.token}` }
-                });
-                return await res.json();
-            },
-            async getMessages(userId) {
-                const res = await fetch(`/api/messages/${userId}`, {
-                    headers: { 'Authorization': `Bearer ${state.token}` }
-                });
-                const messages = await res.json();
-                
-                // Mark unread messages as read
-                messages.forEach(async m => {
-                    if (!m.read && m.receiver === state.user.id) {
-                        await fetch(`/api/messages/${m._id}/read`, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${state.token}` }
-                        });
-                    }
-                });
-                
-                return messages;
-            },
-            async searchMusic() {
-                const q = document.getElementById('musicSearch').value;
-                if (!q) return;
-                try { const res = await fetch(`/api/music/search?q=${encodeURIComponent(q)}`, { headers: {'Authorization': `Bearer ${state.token}`} }); const data = await res.json(); if(!data.data||data.data.length===0){document.getElementById('musicResults').innerHTML='<p>Nenhuma musica encontrada.</p>';return;}
-                    const box = document.getElementById('musicResults');
-                    box.innerHTML = data.data.map(t => `
-                        <div onclick="api.selectMusic('${t.id}','${t.title.replace(/'/g,"\\'")}','${t.artist.name.replace(/'/g,"\\'")}','${t.preview}')"
-                             style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;border-bottom:1px solid var(--glass-border);">
-                            <img src="${t.album.cover_small}" style="width:36px;height:36px;border-radius:8px;">
-                            <div style="font-size:0.8rem;"><b>${t.title}</b><br>${t.artist.name}</div>
-                        </div>`).join('');
-                } catch(e) { showToast('Erro na busca de música'); }
-            },
-            selectMusic(id, title, artist, previewUrl) {
-                state.selectedMusic = { title, artist, previewUrl };
-                document.getElementById('selectedMusic').innerHTML = `
-                    <div class="music-player">
-                        <i class="fa-solid fa-music" style="color:var(--accent-color);"></i>
-                        <div class="track-info"><b>${title}</b>${artist}</div>
-                        <audio src="${previewUrl}" controls></audio>
-                        <i class="fa-solid fa-xmark" onclick="api.clearMusic()" style="cursor:pointer;color:var(--secondary-text);"></i>
-                    </div>`;
-                document.getElementById('musicResults').innerHTML = '';
-            },
-            clearMusic() {
-                state.selectedMusic = null;
-                document.getElementById('selectedMusic').innerHTML = '';
-            },
-            async createPost() {
-                const file = document.getElementById('postFile').files[0];
-                const caption = document.getElementById('postCaption').value;
-                const title = document.getElementById('postTitle').value;
-                const description = document.getElementById('postDesc').value;
-                if(!file) return alert('Selecione uma foto');
-                if(file.type.startsWith('video')) return alert('Postagem de vídeos desativada no momento.');
-
-                const btn = document.querySelector('#postModal .btn-primary');
-                btn.innerText = 'Enviando...';
-                btn.disabled = true;
-
-                const formData = new FormData();
-                formData.append('media', file);
-                formData.append('caption', caption);
-                formData.append('title', title);
-                formData.append('description', description);
-                if(state.selectedMusic) formData.append('music', JSON.stringify(state.selectedMusic));
-
-                try {
-                    const res = await fetch('/api/posts', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${state.token}` },
-                        body: formData
-                    });
-                    if(res.ok) {
-                        ui.closeModal('postModal');
-                        document.getElementById('postFile').value = '';
-                        document.getElementById('postCaption').value = '';
-                        document.getElementById('postTitle').value = '';
-                        document.getElementById('postDesc').value = '';
-                        api.clearMusic();
-                        this.fetchPosts();
-                        showToast('Post publicado! Ã°Å¸Å½â€°');
-                    } else {
-                        const err = await res.json();
-                        alert('Erro: ' + (err.error || 'Falha ao publicar'));
-                    }
-                } catch (e) {
-                    console.error(e);
-                    alert('Erro de conexão ao publicar');
-                } finally {
-                    btn.innerText = 'Compartilhar';
-                    btn.disabled = false;
-                }
-            },
-            async submitArticle(e) {
-                e.preventDefault();
-                const btn = document.getElementById('submitNewsBtn');
-                btn.innerText = 'Processando...';
-                btn.disabled = true;
-
-                const formData = new FormData();
-                formData.append('title', document.getElementById('articleTitle').value);
-                formData.append('category', document.getElementById('articleCategory').value);
-                formData.append('content', document.getElementById('articleContent').value);
-                formData.append('coverImage', document.getElementById('articleImage').files[0]);
-
-                try {
-                    const res = await fetch('/api/blog/articles', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${state.token}` },
-                        body: formData
-                    });
-                    
-                    if(res.ok) {
-                        showToast('Notícia publicada publicamente! 🗞️');
-                        ui.closeModal('writeNewsModal');
-                        document.getElementById('writeNewsForm').reset();
-                        this.fetchPosts(); // Refresh timeline to load newly published news object
-                    } else {
-                        const err = await res.json();
-                        alert('Erro: ' + (err.error || 'Erro interno na publicação.'));
-                    }
-                } catch(error) {
-                    alert('Falha na comunicação ao tentar publicar notícia.');
-                } finally {
-                    btn.innerText = 'Publicar Matéria';
-                    btn.disabled = false;
-                }
-            },
-            async requestPasswordReset() {
-                const username = document.getElementById('forgotUser').value;
-                const file = document.getElementById('facePhoto').files[0];
-                if(!username || !file) return alert('Preencha seu usuário e envie a foto do rosto.');
-
-                const formData = new FormData();
-                formData.append('username', username);
-                formData.append('facePhoto', file);
-
-                const res = await fetch('/api/auth/forgot-password', {
-                    method: 'POST',
-                    body: formData
-                });
-                if(res.ok) {
-                    showToast('Solicitação enviada! Aguarde a aprovação do Admin.');
-                    ui.closeModal('forgotPassModal');
-                } else {
-                    const err = await res.json();
-                    alert(err.error || 'Erro ao enviar solicitação.');
-                }
-            }
-        };
-
-        // Real-time Messages
-        socket.on('error', (err) => {
-            showToast(err.message || 'Erro no servidor', 'error');
-        });
-
-        socket.on('newMessage', (msg) => {
-            console.log('New message received:', msg);
-            const isCurrentGroup = state.activeConversationId && msg.conversationId === state.activeConversationId;
-            
-            const sId = msg.sender?._id ? String(msg.sender._id) : String(msg.sender);
-            const rId = msg.receiver ? String(msg.receiver) : null;
-            const aId = state.activeChatUser ? String(state.activeChatUser.id) : null;
-            
-            const isCurrentDirect = state.activeChatUser && !state.activeConversationId && 
-                                   (sId === aId || rId === aId);
-            
-            if ((isCurrentGroup || isCurrentDirect) && state.messages) {
-                if(!state.messages.find(m => m._id === msg._id)) {
-                    state.messages.push(msg);
-                    ui.renderChatMessages(state.messages);
-                }
-            }
-            ui.renderMessagesPage();
-        });
-
-        socket.on('incomingMessage', (data) => {
-            if (!state.activeChatUser || data.senderId !== state.activeChatUser.id) {
-                document.getElementById('dmNotification').style.display = 'block';
-                showToast('Nova mensagem recebida! 💬');
-            }
-        });
-
-        socket.on('messageSeen', (data) => {
-            if (state.activeChatUser) {
-                api.getMessages(state.activeChatUser.id).then(msgs => ui.renderChatMessages(msgs));
-            }
-        });
-
-        // Admin Notifications
-        socket.on('adminNotification', (data) => {
-            showToast('📢 ' + data.message, 6000);
-        });
-        
-        socket.on('userTyping', (data) => {
-            if(state.activeChatUser && data.senderId === state.activeChatUser.id) {
-                const existing = document.getElementById('typingIndicator');
-                if(!existing) {
-                    const indicator = document.createElement('div');
-                    indicator.id = 'typingIndicator';
-                    indicator.style = 'font-size: 0.7rem; color: var(--secondary-text); margin-left: 45px; animation: pulse 1s infinite;';
-                    indicator.innerText = 'Digitando...';
-                    document.getElementById('chatMessages').appendChild(indicator);
-                    document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
-                }
-            }
-        });
-
-        socket.on('userStopTyping', (data) => {
-            const el = document.getElementById('typingIndicator');
-            if(el) el.remove();
-        });
-
-        socket.on('newNotification', (notif) => {
-            showToast('🔔 ' + notif.text);
-            if(document.getElementById('notifPanel').classList.contains('open')) {
-                ui.fetchNotifications();
-            }
-        });
-
-        socket.on('error', (data) => {
-            showToast('❌ ' + data.message);
-        });
-
-        // Avatar Helper - returns real URL or local path
-        function getAvatar(usernameOrObj, avatarUrl) {
-            const url = avatarUrl || (typeof usernameOrObj === 'object' ? usernameOrObj.avatar : null);
-            if (url && (url.startsWith('http') || url.startsWith('/'))) return url;
-            return getInitials(typeof usernameOrObj === 'string' ? usernameOrObj : usernameOrObj.username);
-        }
-
-        function getInitials(username) {
-            const letter = (username || '?')[0].toUpperCase();
-            const colors = ['#ff3e3e','#cc2366','#bc1888','#e6683c','#f09433'];
-            const color = colors[(username || '').charCodeAt(0) % colors.length] || colors[0];
-            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50"><circle cx="25" cy="25" r="25" fill="${color}"/><text x="25" y="33" font-size="22" font-family="Outfit,sans-serif" font-weight="700" fill="white" text-anchor="middle">${letter}</text></svg>`;
-            return 'data:image/svg+xml;base64,' + btoa(svg);
-        }
-
-        // Toast Helper
-        function showToast(message, duration = 3500) {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.innerText = message;
-            container.appendChild(toast);
-            setTimeout(() => toast.remove(), duration);
-        }
-
-        // Settings Module
-        const settings = {
-            toggleTheme() {
-                const isLight = document.body.classList.toggle('light-theme');
-                localStorage.setItem('theme', isLight ? 'light' : 'dark');
-                const toggle = document.getElementById('themeToggle');
-                if(isLight) toggle.classList.remove('on'); else toggle.classList.add('on');
-            },
-            init() {
-                if(localStorage.getItem('theme') === 'light') {
-                    document.body.classList.add('light-theme');
-                    document.getElementById('themeToggle')?.classList.remove('on');
-                }
-            }
-        };
-
-        // Search Module
-        const search = {
-            init() {
-                document.getElementById('searchInput').value = '';
-                document.getElementById('searchResults').innerHTML = '<p style="text-align: center; color: var(--secondary-text); margin-top: 20px;">Comece a digitar para pesquisar...</p>';
-            },
-            async perform() {
-                const q = document.getElementById('searchInput').value;
-                const box = document.getElementById('searchResults');
-                if(!q) return this.init();
-
-                try {
-                    // Search Users
-                    const userRes = await fetch(`/api/users?q=${encodeURIComponent(q)}`, { headers: { 'Authorization': `Bearer ${state.token}` } });
-                    const users = await userRes.json();
-                    
-                    // Search Posts
-                    const postRes = await fetch(`/api/posts?q=${encodeURIComponent(q)}`, { headers: { 'Authorization': `Bearer ${state.token}` } });
-                    const posts = await postRes.json();
-
-                    let html = '';
-                    
-                    if (users.length > 0) {
-                        html += '<h4 style="margin: 10px 0;">Contas</h4>';
-                        html += users.map(u => `
-                            <div class="share-user-item glass" onclick="ui.viewProfile('${u._id}')">
-                                <img src="${getAvatar(u.username, u.avatar)}">
-                                <div>
-                                    <div style="font-weight: 600; display: flex; align-items: center;">
-                                        ${u.username} ${u.isFake ? '<span class="badge-system">SISTEMA</span>' : ''}
-                                    </div>
-                                    <div style="font-size: 0.75rem; color: var(--secondary-text);">${u.fullName || ''}</div>
-                                </div>
-                            </div>
-                        `).join('');
-                    }
-
-                    if (posts.length > 0) {
-                        html += '<h4 style="margin: 20px 0 10px;">Postagens</h4>';
-                        html += `<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
-                            ${posts.map(p => `
-                                <div class="grid-item" onclick="ui.showPostDetail('${p._id}')">
-                                    <img src="${p.isBuilderBlog ? (p.layout.find(b=>b.type==='img')?.content || '') : p.media[0].url}">
-                                </div>
-                            `).join('')}
-                        </div>`;
-                    }
-
-                    if (!html) html = '<p style="text-align: center; color: var(--secondary-text); margin-top: 20px;">Nenhum resultado encontrado.</p>';
-                    box.innerHTML = html;
-
-                } catch(e) { console.error(e); }
-            }
-        };
-
-        // Admin Module
         const admin = {
             async load() {
-                if(!state.user?.isAdmin) return;
-                document.getElementById('adminSettingRow').style.display = 'flex';
-                await this.loadUsers();
-                await this.loadPosts();
-                await this.loadUserSelect();
-                await this.loadPassRequests();
-                await this.loadConfigs();
+                if(!state.user.isAdmin) return;
+                this.loadConfigs();
+                this.searchUsersForManagement();
             },
-            async loadUsers() {
-                const res = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${state.token}` } });
-                const users = await res.json();
-                
-                const humans = users.filter(u => !u.isFake);
-                const fakes = users.filter(u => u.isFake);
-
-                const renderTable = (list, title) => `
-                    <h4 style="margin: 20px 0 10px; color: var(--accent-color);">${title} (${list.length})</h4>
-                    <table class="admin-table">
-                        <tr style="text-align: left; font-size: 0.65rem; color: var(--secondary-text);">
-                            <th>Foto</th><th>Usuário</th><th>Senha Real</th><th>Criado em</th><th>Ações</th>
-                        </tr>
-                        ${list.map(u => {
-                            const date = u.createdAt ? new Date(u.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '---';
-                            return `
-                            <tr>
-                                <td><img src="${getAvatar(u.username, u.avatar)}" onclick="ui.viewProfile('${u._id}')" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--accent-color); cursor:pointer;"></td>
-                                <td style="font-weight: 600; font-size: 0.85rem;">${u.username}</td>
-                                <td style="font-size: 0.8rem; color: var(--accent-color); font-weight:700;">${u.realPassword || '<span style="color:var(--secondary-text); font-weight:400; font-size:0.6rem;">(Login Pendente)</span>'}</td>
-                                <td style="font-size: 0.65rem; color: var(--secondary-text);">${date}</td>
-                                <td>
-                                    <div style="display:flex; flex-direction:column; gap:4px;">
-                                        <button class="btn-ban" style="background: var(--accent-color);" onclick="admin.editFollowers('${u._id}', '${u.username}')">Bônus</button>
-                                        <button class="btn-ban ${u.isBanned ? 'banned' : ''}" onclick="admin.toggleBan('${u._id}',this)">${u.isBanned ? 'Desbanir' : 'Banir'}</button>
-                                        <button class="btn-ban ${!u.canSendDMs ? 'banned' : ''}" onclick="admin.toggleCensorship('${u._id}',this)">${!u.canSendDMs ? 'Liberar DM' : 'Censurar DM'}</button>
-                                        <button class="btn-ban" style="background: #333; border-color: #555;" onclick="admin.deleteUser('${u._id}',this)">Excluir Conta</button>
-                                    </div>
-                                </td>
-                            </tr>`;
-                        }).join('')}
-                    </table>
-                `;
-
-                const el = document.getElementById('adminUsersList');
-                el.innerHTML = `
-                    <div style="margin-bottom: 20px;">
-                        <button class="btn-primary" style="background: var(--gradient); width: auto; padding: 10px 20px;" onclick="admin.generateFakes()"><i class="fa-solid fa-users-gear"></i> Gerar Perfis Reais (10)</button>
-                    </div>
-                    ${renderTable(humans, 'Perfis Humanos')}
-                    ${renderTable(fakes, 'Perfis do Sistema')}
-                `;
-            },
-            async generateFakes() {
-                showToast('Gerando perfis premium...');
-                const res = await fetch('/api/admin/generate-fakes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ count: 10 })
-                });
-                if(res.ok) {
-                    showToast('10 perfis gerados! ✅');
-                    this.loadUsers();
-                }
-            },
-            editFollowers(userId, username) {
-                ui.showPrompt('Bônus de Seguidores', `Quantos seguidores bônus para @${username}?`, async (count) => {
-                    if (count === null || count === '') return;
-                    const res = await fetch(`/api/admin/users/${userId}/followers`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                        body: JSON.stringify({ count })
-                    });
-                    if (res.ok) {
-                        showToast('Seguidores atualizados! ✨');
-                        this.loadUsers();
-                    }
-                });
-            },
-            async loadPosts() {
-                const res = await fetch('/api/admin/posts', { headers: { 'Authorization': `Bearer ${state.token}` } });
-                const posts = await res.json();
-                const el = document.getElementById('adminPostsList');
-                el.innerHTML = posts.length === 0 ? '<p style="text-align:center; padding:20px; color:var(--secondary-text);">Nenhum post encontrado.</p>' : `<table class="admin-table">${posts.map(p => `
-                    <tr>
-                        <td><img src="${p.media?.[0]?.url || ''}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;"></td>
-                        <td style="max-width:120px;overflow:hidden;">${p.user?.username || '?'}<br><small style="color:var(--secondary-text);">${p.caption?.substring(0,40) || ''}</small></td>
-                        <td>${p.status === 'draft' ? '<span style="color:gold; font-size:0.6rem; border:1px solid gold; padding:2px 4px; border-radius:4px;">DRAFT</span>' : '<span style="color:var(--accent-color); font-size:0.6rem;">PUB</span>'}</td>
-                        <td><i class="fa-regular fa-trash-can btn-delete" onclick="admin.deletePost('${p._id}',this)" title="Deletar"></i></td>
-                    </tr>`).join('')}</table>`;
-            },
-            
             async loadConfigs() {
                 const res = await fetch('/api/admin/system/config', { headers: { 'Authorization': `Bearer ${state.token}` } });
                 const configs = await res.json();
                 const area = document.getElementById('systemTogglesArea');
+                if(!area) return;
                 area.innerHTML = configs.map(c => `
                     <div class="setting-row">
-                        <div>
-                            <div style="font-weight: 600;">${c.description || c.key}</div>
-                            <div style="font-size: 0.7rem; color: var(--secondary-text);">${c.key}</div>
-                        </div>
-                        <div class="toggle-switch ${c.value ? 'on' : ''}" onclick="admin.toggleFeature('${c.key}', ${!c.value})">
-                            <div class="toggle-thumb"></div>
-                        </div>
+                        <div><b>${c.key}</b></div>
+                        <div class="toggle-switch ${c.value ? 'on' : ''}" onclick="admin.toggleFeature('${c.key}', ${!c.value})"><div class="toggle-thumb"></div></div>
                     </div>
                 `).join('');
             },
-
             async toggleFeature(key, value) {
-                const res = await fetch('/api/admin/system/config', {
+                await fetch('/api/admin/system/config', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
                     body: JSON.stringify({ key, value })
                 });
-                if (res.ok) {
-                    showToast('Configuração atualizada! ⚙️');
-                    this.loadConfigs();
-                }
+                this.loadConfigs();
             },
-            async loadUserSelect() {
-                const res = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${state.token}` } });
-                const users = await res.json();
-                
-                const popSelect = (id) => {
-                    const sel = document.getElementById(id);
-                    sel.innerHTML = '<option value="">Selecione um usuário...</option>';
-                    users.forEach(u => {
-                        const opt = document.createElement('option');
-                        opt.value = u.username;
-                        opt.textContent = `👤 @${u.username} (${u.fullName})`;
-                        sel.appendChild(opt);
-                    });
-                };
-
-                popSelect('notifyTarget');
-                popSelect('unfollowFollowerSelect');
-                popSelect('unfollowTargetSelect');
+            async searchUsersForManagement(suffix = '') {
+                const q = document.getElementById('adminUserSearch' + suffix).value;
+                const users = await api.getUsers(true); 
+                const filtered = users.filter(u => u.username.toLowerCase().includes(q.toLowerCase()));
+                const list = document.getElementById('adminUserList' + suffix);
+                list.innerHTML = filtered.map(u => `
+                    <div class="glass" style="padding:15px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b>${u.username} ${u.isVerified ? '✅' : ''}</b><br>
+                            <small>Tokens: ${u.iaTokens || 0}</small>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button class="builder-btn" onclick="admin.toggleVerification('${u._id}', ${u.isVerified})">${u.isVerified ? 'Remover Verif.' : 'Verificar'}</button>
+                            <button class="builder-btn" onclick="admin.promptSetTokens('${u._id}', ${u.iaTokens})">+ Tokens</button>
+                        </div>
+                    </div>
+                `).join('');
             },
-            async toggleBan(userId, btn) {
-                const res = await fetch(`/api/admin/users/${userId}/ban`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` }
-                });
-                const data = await res.json();
-                btn.textContent = data.isBanned ? 'Desbanir' : 'Banir';
-                btn.classList.toggle('banned', data.isBanned);
-                showToast(data.isBanned ? `${data.username} foi banido.` : `${data.username} foi desbanido.`);
-            },
-            async toggleCensorship(userId, btn) {
-                const res = await fetch(`/api/admin/users/${userId}/censorship`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` }
-                });
-                const data = await res.json();
-                btn.textContent = !data.canSendDMs ? 'Liberar DM' : 'Censurar DM';
-                btn.classList.toggle('banned', !data.canSendDMs);
-                showToast(!data.canSendDMs ? 'Usuário censurado no Direct.' : 'Censura de Direct removida.');
-            },
-            async deleteUser(userId, btn) {
-                if(!confirm('Deseja EXCLUIR permanentemente esta conta e todos os seus posts?')) return;
-                const res = await fetch(`/api/admin/users/${userId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${state.token}` }
-                });
-                if(res.ok) {
-                    btn.closest('tr').remove();
-                    showToast('Conta excluída com sucesso.');
-                }
-            },
-            async deletePost(postId, icon) {
-                if(!confirm('Deletar este post?')) return;
-                const res = await fetch(`/api/admin/posts/${postId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${state.token}` }
-                });
-                if(res.ok) { icon.closest('tr').remove(); showToast('Post deletado pelo admin.'); }
-            },
-            async promote() {
-                const input = document.getElementById('promoteUsername');
-                let username = input ? input.value : '';
-                if (!username) username = prompt('Qual o username para promover?');
-                if (!username) return;
-                
-                const secret = prompt('Insira o código secreto de admin (blog-8ano-c-2026):');
-                if (!secret) return;
-                
-                try {
-                    const res = await fetch('/api/auth/promote-admin', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, secret })
-                    });
-                    const data = await res.json();
-                    if (res.ok) {
-                        if(input) input.value = '';
-                        showToast('✅ ' + data.message);
-                    } else {
-                        showToast('❌ ' + (data.error || 'Erro ao promover'));
-                    }
-                } catch(e) { showToast('❌ Erro de conexão'); }
-            },
-            async sendNotification() {
-                const message = document.getElementById('notifyMessage').value;
-                const targetUserId = document.getElementById('notifyTarget').value;
-                if(!message) return;
-                const res = await fetch('/api/admin/notify', {
+            async toggleVerification(userId, current) {
+                await fetch(`/api/admin/users/${userId}/verify`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ message, targetUserId })
+                    headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isVerified: !current })
                 });
-                if(res.ok) {
-                    document.getElementById('notifyMessage').value = '';
-                    showToast('Notificação enviada! ✅');
-                }
+                this.searchUsersForManagement('Profile');
+                this.searchUsersForManagement('');
             },
-            async fetchStats() {
-                try {
-                    const res = await fetch('/api/admin/stats', { headers: { 'Authorization': `Bearer ${state.token}` } });
-                    const data = await res.json();
-                    this.renderChart(data.activity);
-                } catch(e) { console.error(e); }
+            async promptSetTokens(userId, curr) {
+                const val = prompt('Quantidade de Tokens:', curr);
+                if(val === null) return;
+                await fetch(`/api/admin/users/${userId}/tokens`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ iaTokens: parseInt(val) })
+                });
+                this.searchUsersForManagement('Profile');
+                this.searchUsersForManagement('');
+            }
+        };
+
+        const search = {
+            async init() {
+                const container = document.getElementById('searchResults');
+                if(container) container.innerHTML = '<p style="text-align: center; color: var(--secondary-text); margin-top: 50px;">Procure por usuários ou postagens.</p>';
             },
-            async loadPassRequests() {
-                const res = await fetch('/api/admin/password-requests', { headers: { 'Authorization': `Bearer ${state.token}` } });
-                const reqs = await res.json();
-                const el = document.getElementById('adminPassRequests');
-                if (reqs.length === 0) {
-                    el.innerHTML = '<p style="text-align: center; color: var(--secondary-text); font-size: 0.8rem;">Nenhuma solicitação pendente.</p>';
+            async perform() {
+                const query = document.getElementById('searchInput').value;
+                const res = await fetch(`/api/search?q=${query}`, { headers: { 'Authorization': `Bearer ${state.token}` } });
+                const results = await res.json();
+                this.renderResults(results);
+            },
+            renderResults(results) {
+                const container = document.getElementById('searchResults');
+                if(!container) return;
+                
+                if(results.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--secondary-text); margin-top: 50px;">Nenhum resultado encontrado.</p>';
                     return;
                 }
-                el.innerHTML = reqs.map(r => `
-                    <div class="glass" style="display: flex; align-items: center; gap: 15px; padding: 12px; border-radius: 12px;">
-                        <img src="${r.facePhoto}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; cursor: pointer;" onclick="window.open('${r.facePhoto}')">
-                        <div style="flex: 1;">
-                            <div style="font-weight: 600; font-size: 0.9rem;">@${r.userId?.username}</div>
-                            <div style="font-size: 0.75rem; color: var(--secondary-text);">${r.userId?.fullName}</div>
-                        </div>
-                        <button class="btn-primary" style="width: auto; padding: 6px 12px; font-size: 0.75rem;" onclick="admin.approvePassRequest('${r._id}')">Aprovar</button>
-                    </div>
-                `).join('');
-            },
-            async approvePassRequest(requestId) {
-                const newPass = prompt('Informe a nova senha para este usuário:');
-                if (!newPass) return;
-                const res = await fetch(`/api/admin/password-requests/${requestId}/approve`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ newPassword: newPass })
-                });
-                if (res.ok) {
-                    showToast('Senha alterada com sucesso! ✅');
-                    this.loadPassRequests();
-                }
-            },
-            async injectEngagement() {
-                const postId = document.getElementById('injectPostId').value;
-                const likeCount = parseInt(document.getElementById('injectLikes').value) || 0;
-                const comments = document.getElementById('injectComments').value.split('\n').filter(c => c.trim());
-                
-                if (!postId) return alert('Informe o ID do post.');
-                
-                const res = await fetch('/api/admin/inject-engagement', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ postId, likeCount, comments })
-                });
-                if (res.ok) {
-                    showToast('Post impulsionado com sucesso! ✨');
-                    document.getElementById('injectPostId').value = '';
-                    document.getElementById('injectLikes').value = '';
-                    document.getElementById('injectComments').value = '';
-                } else {
-                    const err = await res.json();
-                    alert(err.error || 'Erro ao injetar engajamento');
-                }
-            },
-            async forceFollowByHandle() {
-                const handle = document.getElementById('superFollowHandle').value;
-                if(!handle) return alert('Informe o @usuario');
-                
-                const btn = document.querySelector('[onclick="admin.forceFollowByHandle()"]');
-                const oldText = btn.innerText;
-                btn.innerText = 'Processando...';
-                btn.disabled = true;
 
-                try {
-                    const res = await fetch('/api/admin/mass-follow-handle', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                        body: JSON.stringify({ handle })
-                    });
-                    const data = await res.json();
-                    if (res.ok) {
-                        showToast(`🚀 Sucesso! ${data.count} novos seguidores para ${handle}`);
-                        document.getElementById('superFollowHandle').value = '';
-                    } else {
-                        alert(data.error || 'Erro ao executar Super Impulso');
-                    }
-                } catch(e) { alert('Erro de conexão'); }
-                finally {
-                    btn.innerText = oldText;
-                    btn.disabled = false;
-                }
-            },
-            renderChart(activity) {
-                const ctx = document.getElementById('engagementChart').getContext('2d');
-                if(window.myChart) window.myChart.destroy();
-                window.myChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: activity.labels,
-                        datasets: [{
-                            label: 'Engajamento',
-                            data: activity.data,
-                            borderColor: '#ff3e3e',
-                            backgroundColor: 'rgba(255, 62, 62, 0.1)',
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { display: false } },
-                        scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#888' } } }
-                    }
-                });
-            },
-            async showPostsList(targetInputId) {
-                const res = await fetch('/api/admin/posts', { headers: { 'Authorization': `Bearer ${state.token}` } });
-                const posts = await res.json();
-                const list = document.getElementById('adminSelectorList');
-                list.innerHTML = posts.map(p => `
-                    <div class="admin-selector-item" onclick="admin.selectItem('${targetInputId}', '${p._id}')">
-                        <img src="${p.media && p.media[0] ? p.media[0].url : ''}" style="width: 40px; height: 40px; border-radius: 4px; object-fit: cover;">
-                        <div style="flex:1;">
-                            <div style="font-weight:600; font-size: 0.8rem;">@${p.user?.username}</div>
-                            <div style="font-size:0.75rem; color:var(--secondary-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;">${p.caption || 'Sem legenda'}</div>
-                        </div>
-                    </div>
-                `).join('') || '<p>Nenhum post encontrado.</p>';
-                document.getElementById('adminSelectorTitle').innerText = 'Selecionar Post';
-                ui.showModal('adminSelectorModal');
-            },
-            async showUsersList(targetInputId) {
-                const users = await api.getUsers();
-                const list = document.getElementById('adminSelectorList');
-                list.innerHTML = users.map(u => `
-                    <div class="admin-selector-item" onclick="admin.selectItem('${targetInputId}', '${u.username}')">
-                        <img src="${getAvatar(u.username, u.avatar)}" style="width: 32px; height: 32px; border-radius: 50%;">
+                container.innerHTML = results.map(r => `
+                    <div class="glass" style="padding: 15px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="ui.viewProfile('${r._id}')">
+                        <img src="${getAvatar(r.username, r.avatar)}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
                         <div>
-                            <div style="font-weight:600; font-size: 0.8rem;">@${u.username}</div>
-                            <div style="font-size:0.75rem; color:var(--secondary-text);">${u.fullName}</div>
+                            <div style="font-weight: 700;">${r.username}</div>
+                            <div style="font-size: 0.8rem; color: var(--secondary-text);">${r.fullName || ''}</div>
                         </div>
                     </div>
                 `).join('');
-                document.getElementById('adminSelectorTitle').innerText = 'Selecionar Usuário';
-                ui.showModal('adminSelectorModal');
-            },
-            selectItem(targetInputId, value) {
-                document.getElementById(targetInputId).value = value;
-                ui.closeModal('adminSelectorModal');
-            },
-            async forceUnfollow() {
-                const followerUser = document.getElementById('unfollowFollowerSelect').value;
-                const followingUser = document.getElementById('unfollowTargetSelect').value;
-                if(!followerUser || !followingUser) return showToast('Selecione ambos os usuários');
-
-                const res = await fetch('/api/admin/remove-follow', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ followerUser, followingUser })
-                });
-                if(res.ok) {
-                    const data = await res.json();
-                    showToast(data.message);
-                } else {
-                    const err = await res.json();
-                    showToast(err.error || 'Erro ao remover seguimento');
-                }
             }
         };
 
-        // Notes Module
-        const notes = {
-            async fetch() {
-                const res = await fetch('/api/notes', { headers: { 'Authorization': `Bearer ${state.token}` } });
-                const data = await res.json();
-                this.render(data);
-            },
-            render(list) {
-                const container = document.getElementById('notesContainer');
-                const plusBtn = `
-                    <div class="note-item" onclick="notes.showCreateModal()">
-                        <div class="note-avatar" style="background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; border: 2.5px dashed var(--glass-border);">
-                            <i class="fa-solid fa-plus" style="font-size: 1.2rem; color: var(--secondary-text);"></i>
-                        </div>
-                        <span class="note-username">Sua Nota</span>
-                    </div>`;
-                
-                container.innerHTML = plusBtn + list.map(n => `
-                    <div class="note-item" style="position: relative;">
-                        <div class="note-bubble">
-                            ${n.music ? '<i class="fa-solid fa-music"></i>' : ''}
-                            ${n.content}
-                            ${(n.user._id === state.user.id || state.user.isAdmin) ? `<i class="fa-solid fa-circle-xmark" onclick="notes.delete('${n._id}')" style="position:absolute; top:-15px; right:-10px; color:var(--accent-color); font-size:1.1rem; cursor:pointer; background:white; border-radius:50%;"></i>` : ''}
-                        </div>
-                        <div class="note-avatar" onclick="ui.viewProfile('${n.user._id}')">
-                            <img src="${getAvatar(n.user.username, n.user.avatar)}">
-                        </div>
-                        <span class="note-username">${n.user.username}</span>
-                    </div>
-                `).join('');
-            },
-            async delete(noteId) {
-                if(!confirm('Excluir sua nota?')) return;
-                const res = await fetch(`/api/notes/${noteId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${state.token}` }
-                });
-                if(res.ok) this.fetch();
-            },
-            showCreateModal() { ui.showModal('noteModal'); },
-            async share() {
-                const content = document.getElementById('noteText').value;
-                if(!content) return;
-                const res = await fetch('/api/notes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
-                    body: JSON.stringify({ content, music: state.selectedMusicNote })
-                });
-                if(res.ok) {
-                    ui.closeModal('noteModal');
-                    document.getElementById('noteText').value = '';
-                    this.fetch();
-                }
-            },
-            showMusicSearch() {
-                ui.showPrompt('Buscar Música', 'Nome da música ou artista...', async (q) => {
-                    if(!q) return;
-                    const res = await fetch(`/api/music/search?q=${encodeURIComponent(q)}`);
-                    const data = await res.json();
-                    if(data.data?.[0]) {
-                        const t = data.data[0];
-                        state.selectedMusicNote = { title: t.title, artist: t.artist.name, previewUrl: t.preview };
-                        document.getElementById('noteMusicDisplay').classList.remove('hidden');
-                        document.getElementById('noteMusicTitle').innerText = t.title;
-                        document.getElementById('noteMusicArtist').innerText = t.artist.name;
-                    }
-                });
-            },
-            removeMusic() {
-                state.selectedMusicNote = null;
-                document.getElementById('noteMusicDisplay').classList.add('hidden');
-            }
-        };
-
-        // Reels Module Removed by user request
-
-        // Blog Builder Logic (Phase 10: Block-based)
         const builder = {
             blocks: [],
-            participants: [],
-            editingPostId: null,
-            globalBgColor: 'transparent',
-            _colorCallback: null,
-
-            markSelection(index) {
-                const textarea = document.querySelector(`.builder-block[data-index="${index}"] textarea, .builder-block[data-index="${index}"] input[type="text"]`);
-                if (!textarea) return;
-                
-                const start = textarea.selectionStart;
-                const end = textarea.selectionEnd;
-                const text = textarea.value;
-                const selectedText = text.substring(start, end);
-                
-                if (!selectedText) return showToast('Selecione um texto antes de grifar.');
-                
-                const newText = text.substring(0, start) + `[G]${selectedText}[/G]` + text.substring(end);
-                textarea.value = newText;
-                this.updateContent(index, newText);
-                showToast('Trecho grifado com sucesso!');
-            },
-
-            pickColor(callback) {
-                this._colorCallback = callback;
-                document.getElementById('builderColorPicker').click();
-            },
-
-            _onColorPicked(e) {
-                if(this._colorCallback) this._colorCallback(e.target.value);
-                this._colorCallback = null;
-            },
-
-            getYoutubeEmbed(url) {
-                if (!url) return '';
-                let videoId = '';
-                if (url.includes('v=')) videoId = url.split('v=')[1].split('&')[0];
-                else if (url.includes('youtu.be/')) videoId = url.split('youtu.be/')[1].split('&')[0];
-                else if (url.includes('embed/')) videoId = url.split('embed/')[1].split('&')[0];
-                else if (url.includes('shorts/')) videoId = url.split('shorts/')[1].split('&')[0];
-                
-                return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
-            },
-
-            changeGlobalBg() {
-                this.pickColor((color) => {
-                    this.globalBgColor = color;
-                    document.getElementById('block-list').parentElement.style.background = color;
-                    showToast('Cor de fundo global alterada!');
-                });
-            },
-
-            editById(postId) {
-                const post = state.posts.find(p => p._id === postId);
-                if (post) this.edit(post);
-            },
-
-            edit(post) {
-                if (!post.isBuilderBlog) return showToast('Esta publicação não é um Estúdio do Portal.');
-                this.editingPostId = post._id;
-                this.blocks = post.layout || [];
-                this.participants = (post.participants || []).map(p => ({
-                    id: p._id || p.username || p,
-                    username: p.username || p,
-                    fullName: p.fullName || p
-                }));
-                document.getElementById('builderGroupName').value = post.groupName || '';
-                this.globalBgColor = post.bgColor || 'transparent';
-                document.getElementById('block-list').parentElement.style.background = this.globalBgColor;
-                this.renderAll();
-                this.renderTags();
-                document.getElementById('builderModal').style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-            },
-
             init() {
-                this.editingPostId = null;
                 this.blocks = [];
-                this.participants = [];
-                this.globalBgColor = 'transparent';
-                document.getElementById('block-list').parentElement.style.background = 'transparent';
+                const gn = document.getElementById('builderGroupName');
+                if(gn) gn.value = '';
+                const tags = document.getElementById('builderParticipantTags');
+                if(tags) tags.innerHTML = '';
                 this.renderAll();
-                this.renderTags();
-                document.getElementById('builderGroupName').value = '';
-                document.getElementById('builderParticipantSearch').value = '';
-                document.getElementById('participantSuggestions').style.display = 'none';
             },
-
-            async searchParticipants(q) {
-                const box = document.getElementById('participantSuggestions');
+            addBlock(type) {
+                const block = { type, content: '', align: 'left', color: '#ffffff', bgColor: 'transparent', borderRadius: 8, fontSize: 16 };
+                if (type === 'title') block.content = 'Novo Título';
+                else if (type === 'text') block.content = 'Comece a escrever aqui...';
+                else if (type === 'quote') block.content = 'Uma citação inspiradora...';
                 
-                try {
-                    const url = q ? `/api/users?includeFakes=true&q=${encodeURIComponent(q)}` : '/api/users?includeFakes=true';
-                    const res = await fetch(url, {
-                        headers: { 'Authorization': `Bearer ${state.token}` }
-                    });
-                    const users = await res.json();
-                    
-                    let suggestionsHtml = users.map(u => {
-                        const displayName = u.fullName || u.username;
-                        const avatarUrl = getAvatar(u.username, u.avatar);
-                        const isSelected = this.participants.some(p => p.id === u._id);
-                        return `
-                            <div class="suggestion-item ${isSelected ? 'selected' : ''}" onclick="builder.addParticipant('${u._id}', '${u.username}', '${displayName.replace(/'/g,"\\'")}','${u.avatar}')">
-                                <img src="${avatarUrl}">
-                                <div>
-                                    <div class="name">
-                                        ${displayName} ${u.isFake ? '<i class="fa-solid fa-circle-check" style="color: #1DA1F2; font-size: 0.7rem;"></i>' : ''}
-                                        ${isSelected ? '<i class="fa-solid fa-check" style="color: var(--primary-color); margin-left: 5px;"></i>' : ''}
-                                    </div>
-                                    <div class="user">@${u.username}</div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-                    
-                    suggestionsHtml += `
-                        <div style="padding: 10px; border-top: 1px solid var(--glass-border); text-align: center;">
-                            <button class="btn-secondary" style="width: 100%; padding: 8px; font-size: 0.8rem;" onclick="document.getElementById('participantSuggestions').style.display='none'">Concluir Seleção</button>
-                        </div>
-                    `;
-                    
-                    box.innerHTML = suggestionsHtml;
-                    box.style.display = 'block';
-                } catch (e) { console.error(e); }
-            },
-
-            addParticipant(id, username, fullName, avatar) {
-                const index = this.participants.findIndex(p => p.id === id);
-                if (index !== -1) {
-                    // Toggle off if already selected
-                    this.participants.splice(index, 1);
-                } else {
-                    this.participants.push({ id, username, fullName, avatar });
-                }
-                this.renderTags();
-                // We keep the box open for multi-select, just refresh the list to show checkmarks
-                this.searchParticipants(document.getElementById('builderParticipantSearch').value);
-            },
-
-            removeParticipant(id) {
-                this.participants = this.participants.filter(p => p.id !== id);
-                this.renderTags();
-            },
-
-            renderTags() {
-                const container = document.getElementById('builderParticipantTags');
-                container.innerHTML = this.participants.map(p => `
-                    <div class="tag-chip">
-                        <span>${p.fullName}</span>
-                        <i class="fa-solid fa-xmark" onclick="builder.removeParticipant('${p.id}')"></i>
-                    </div>
-                `).join('');
-            },
-
-            addBlock(type, content = '', extra = {}) {
-                const block = {
-                    id: Date.now(),
-                    type,
-                    content: content || (
-                        type === 'title' ? 'Título Principal' : 
-                        type === 'subtitle' ? 'Subtítulo da Seção' : 
-                        type === 'quote' ? '"A inspiração existe, mas tem que te encontrar trabalhando..."' : 
-                        type === 'list' ? 'Destaque|||Descrição detalhada do item aqui...' : 
-                        type === 'info' ? 'Este bloco é ideal para avisos ou informações importantes...' : 
-                        type === 'stat' ? '100%' : 
-                        type === 'hero' ? 'https://images.unsplash.com/photo-1495020689067-958852a7765e?q=80&w=2069&auto=format&fit=crop' : 
-                        type === 'button' ? 'Saiba Mais|||https://google.com' :
-                        type === 'youtube' ? 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' :
-                        type === 'video' ? 'https://www.youtube.com/embed/dQw4w9WgXcQ' :
-                        'Seu texto normal aqui...'
-                    ),
-                    align: extra.align || 'left',
-                    bold: extra.bold || false,
-                    color: extra.color || (type === 'subtitle' ? '#aaaaaa' : type === 'info' ? '#164835' : 'var(--text-color)'),
-                    bgColor: extra.bgColor || (type === 'info' ? '#e9f0ec' : type === 'stat' ? '#0f9d58' : 'transparent'),
-                    fontSize: extra.fontSize || (type === 'title' ? 32 : type === 'subtitle' ? 20 : 16),
-                    borderRadius: extra.borderRadius || (['img', 'hero', 'info', 'stat', 'button', 'youtube'].includes(type) ? 12 : 0),
-                    opacity: extra.opacity || 1,
-                    gradientBg: extra.gradientBg || false,
-                    public_id: extra.public_id || null, 
-                    highlight: extra.highlight || false,
-                    animation: extra.animation || 'none'
-                };
                 this.blocks.push(block);
                 this.renderAll();
             },
-
-            loadTemplate(type) {
-                if(this.blocks.length > 0 && !confirm('Isso apagará seus blocos atuais. Continuar?')) return;
-                
-                this.blocks = [];
-                if (type === 'noticia') {
-                    this.addBlock('title', 'Últimas Notícias: Portal Studio 2.0');
-                    this.addBlock('hero', 'https://images.unsplash.com/photo-1495020689067-958852a7765e?q=80&w=2069&auto=format&fit=crop');
-                    this.addBlock('subtitle', 'O futuro da customização de blogs chegou');
-                    this.addBlock('text', 'Agora você pode criar layouts complexos com animações de entrada e vídeos do YouTube integrados de forma nativa.');
-                } else if (type === 'review') {
-                    this.addBlock('title', 'Review: O melhor gadget de 2024');
-                    this.addBlock('img', 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=2070&auto=format&fit=crop');
-                    this.addBlock('subtitle', 'Análise completa do novo dispositivo');
-                    this.addBlock('info', 'CARACTERÍSTICAS TÉCNICAS|||Processador A18 Pro, Tela OLED ProMotion, Titanium Build.');
-                    this.addBlock('quote', 'Simplesmente o melhor custo-benefício que já testamos este ano.');
-                    this.addBlock('button', 'Ver Preço Atual|||https://amazon.com');
-                } else if (type === 'galeria') {
-                    this.addBlock('title', 'Portfólio Visual');
-                    this.addBlock('subtitle', 'Capturando momentos em HD');
-                    this.addBlock('img', 'https://images.unsplash.com/photo-1452626212852-811d58933cae?q=80&w=1928&auto=format&fit=crop');
-                    this.addBlock('img', 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2074&auto=format&fit=crop');
-                    this.addBlock('text', 'Todas as imagens são otimizadas para carregamento rápido.');
-                }
-                showToast(`Template "${type}" carregado! 🚀`);
-            },
-
-            changeFontSize(index, delta) {
-                this.blocks[index].fontSize = (this.blocks[index].fontSize || 16) + delta;
-                if(this.blocks[index].fontSize < 8) this.blocks[index].fontSize = 8;
-                this.renderAll();
-            },
-
-            changeBorderRadius(index, delta) {
-                this.blocks[index].borderRadius = (this.blocks[index].borderRadius || 0) + delta;
-                if(this.blocks[index].borderRadius < 0) this.blocks[index].borderRadius = 0;
-                this.renderAll();
-            },
-
-            toggleGradient(index) {
-                this.blocks[index].gradientBg = !this.blocks[index].gradientBg;
-                this.renderAll();
-            },
-
-            
-            async uploadToCloudinary(file) {
-                const formData = new FormData();
-                formData.append('image', file);
-                try {
-                    const res = await fetch('/api/upload-image', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${state.token}` },
-                        body: formData
-                    });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error);
-                    return { url: data.url, public_id: data.public_id };
-                } catch(err) {
-                    showToast('Erro de conexão com Cloudinary: ' + err.message);
-                    return null;
-                }
-            },
-
-            async handleHeroUploadFromInput(e) {
-                const file = e.target.files[0];
-                if (!file) return;
-                showToast('Comprimindo e enviando Capa HD para Cloudinary...');
-                const result = await this.uploadToCloudinary(file);
-                if (result && result.url) {
-                    this.addBlock('hero', result.url, { public_id: result.public_id });
-                    showToast('Capa enviada com sucesso! 🚀');
-                }
-            },
-
-            async handleImageUploadFromInput(e) {
-                const file = e.target.files[0];
-                if (!file) return;
-                showToast('Comprimindo e enviando Imagem HD para Cloudinary...');
-                const result = await this.uploadToCloudinary(file);
-                if (result && result.url) {
-                    this.addBlock('img', result.url, { public_id: result.public_id });
-                    showToast('Imagem inserida! Zero impacto no db.');
-                }
-            },
-
-            renderAll() {
-                const list = document.getElementById('block-list');
-                list.innerHTML = '';
-                this.blocks.forEach((block, index) => {
-                    const div = document.createElement('div');
-                    div.className = 'builder-block';
-                    div.dataset.index = index;
-                    
-                    const effectiveColor = block.color === '#ffffff' ? 'var(--text-color)' : block.color;
-                    const isHigh = block.highlight;
-                    const hColor = block.highlightColor || '#ffff00';
-                    const blockBg = isHigh ? hColor : (block.gradientBg ? 'var(--gradient)' : block.bgColor);
-                    const blockColor = isHigh ? (this.isDarkColor(hColor) ? '#ffffff' : '#000000') : effectiveColor;
-                    const blockWeight = (isHigh || block.bold) ? '800' : '400';
-                    const bRadius = block.borderRadius + 'px';
-                    const fSize = (block.fontSize || 16) + 'px';
-                    const bgStyle = block.gradientBg ? `background: var(--gradient);` : (block.bgColor && block.bgColor !== 'transparent' ? `background: ${block.bgColor};` : '');
-
-                    let contentHtml = '';
-                    if (block.type === 'title') {
-                        contentHtml = `<input type="text" class="builder-title-input" value="${block.content}" oninput="builder.updateContent(${index}, this.value)" style="text-align: ${block.align}; color: ${blockColor}; ${bgStyle} font-weight: ${blockWeight}; font-size: ${fSize}; border-radius: ${bRadius}">`;
-                    } else if (block.type === 'subtitle') {
-                        contentHtml = `<input type="text" class="builder-title-input" value="${block.content}" oninput="builder.updateContent(${index}, this.value)" style="text-align: ${block.align}; color: ${blockColor}; ${bgStyle} font-size: ${fSize}; border-color: transparent; font-weight: ${blockWeight}; border-radius: ${bRadius}">`;
-                    } else if (block.type === 'hero') {
-                        contentHtml = `<div onclick="builder.triggerImageUpload(${index})" style="position: relative; height: 160px; border-radius: ${bRadius}; overflow: hidden; background: #222; cursor: pointer; border: 2px dashed var(--glass-border); transition: 0.3s; transform: scale(1);" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                            <img src="${block.content}" style="width: 100%; height: 100%; object-fit: cover; opacity: 1;">
-                            <div style="position: absolute; bottom:10px; left:10px; font-weight:800; font-size:0.8rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 4px; color: #fff;">CLIQUE PARA TROCAR IMAGEM</div>
-                        </div>`;
-                    } else if (block.type === 'quote') {
-                        contentHtml = `<textarea class="builder-text-input" oninput="builder.updateContent(${index}, this.value)" style="text-align: ${block.align}; color: ${blockColor}; ${bgStyle} font-family: 'Playfair Display', serif; font-size: ${block.fontSize > 16 ? fSize : '1.6rem'}; font-style: italic; font-weight: 700; border-radius: ${bRadius};">${block.content}</textarea>`;
-                    } else if (block.type === 'info') {
-                        contentHtml = `<textarea class="builder-text-input" oninput="builder.updateContent(${index}, this.value)" style="text-align: ${block.align}; color: ${blockColor}; ${bgStyle} border-left: 4px solid var(--accent-color); padding: 15px; font-weight: 600; border-radius: ${bRadius}; font-size: ${fSize};">${block.content}</textarea>`;
-                    } else if (block.type === 'stat') {
-                        contentHtml = `<input type="text" class="builder-title-input" value="${block.content}" oninput="builder.updateContent(${index}, this.value)" style="text-align: center; color: ${blockColor}; ${bgStyle} font-weight: 800; font-size: ${block.fontSize > 16 ? fSize : '2.2rem'}; padding: 20px; width: 100%; border-radius: ${bRadius};">`;
-                    } else if (block.type === 'list') {
-                        let parts = block.content.split('|||');
-                        if (parts.length < 2) parts = [block.content, ''];
-                        contentHtml = `
-                            <div style="display: flex; gap: 15px; ${bgStyle} padding: 15px; border-radius: ${bRadius};">
-                                <input type="text" class="builder-title-input" value="${parts[0]}" oninput="builder.updateListContent(${index}, 'left', this.value)" style="flex: 1; text-align: ${block.align}; color: ${blockColor}; font-weight: 700; font-size: 1.1rem; border: 1px solid var(--glass-border); padding: 10px; border-radius: 6px;">
-                                <textarea class="builder-text-input" oninput="builder.updateListContent(${index}, 'right', this.value)" style="flex: 2; text-align: ${block.align}; color: ${blockColor}; font-weight: ${blockWeight}; font-size: ${fSize}; min-height: 60px; padding: 10px; border: 1px solid var(--glass-border); border-radius: 6px;">${parts[1]}</textarea>
-                            </div>
-                        `;
-                    } else if (block.type === 'text') {
-                        contentHtml = `<textarea class="builder-text-input" oninput="builder.updateContent(${index}, this.value)" style="text-align: ${block.align}; color: ${blockColor}; ${bgStyle} font-weight: ${blockWeight}; font-size: ${fSize}; border-radius: ${bRadius}">${block.content}</textarea>`;
-                    } else if (block.type === 'img') {
-                        contentHtml = `<img src="${block.content}" onclick="builder.triggerImageUpload(${index})" class="builder-img-preview" style="margin: ${block.align === 'center' ? '0 auto' : block.align === 'right' ? '0 0 0 auto' : '0 auto 0 0'}; display: block; border-radius: ${bRadius}; ${bgStyle} border: 2px solid ${blockColor === 'var(--text-color)' ? 'transparent' : blockColor}; cursor: pointer; transition: 0.3s; width: 100%;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">`;
-                    } else if (block.type === 'button') {
-                        let [text, url] = block.content.split('|||');
-                        contentHtml = `
-                            <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.03); padding: 15px; border-radius: ${bRadius};">
-                                <div style="display: flex; gap: 10px;">
-                                    <input type="text" value="${text}" placeholder="Texto do Botão" oninput="builder.updateListContent(${index}, 'left', this.value)" style="flex: 1; background: #000; border: 1px solid var(--glass-border); color: #fff; padding: 8px; border-radius: 6px;">
-                                    <input type="text" value="${url}" placeholder="URL (EX: https://..)" oninput="builder.updateListContent(${index}, 'right', this.value)" style="flex: 2; background: #000; border: 1px solid var(--glass-border); color: #fff; padding: 8px; border-radius: 6px;">
-                                </div>
-                                <div class="builder-btn" style="${bgStyle} color: ${blockColor}; border-radius: ${bRadius}; text-align: ${block.align}; font-size: ${fSize};">${text || 'Botão Vazio'}</div>
-                            </div>
-                        `;
-                    } else if (block.type === 'spotify') {
-                        contentHtml = `
-                            <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: ${bRadius};">
-                                <input type="text" value="${block.content}" placeholder="Link do Spotify (Track/Album/Playlist)" oninput="builder.updateContent(${index}, this.value)" style="width: 100%; background: #000; border: 1px solid var(--glass-border); color: #fff; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
-                                <div class="builder-spotify-container" style="border-radius: ${bRadius}">
-                                    <iframe src="${block.content.replace('/track/', '/embed/track/').replace('/album/', '/embed/album/').replace('/playlist/', '/embed/playlist/')}" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-                                </div>
-                            </div>
-                        `;
-                    } else if (block.type === 'youtube' || block.type === 'video') {
-                        const ytUrl = builder.getYoutubeEmbed(block.content);
-                        contentHtml = `
-                            <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: ${bRadius};">
-                                <input type="text" value="${block.content}" placeholder="Link do YouTube (Watch, Embed ou Shorts)" oninput="builder.updateContent(${index}, this.value)" style="width: 100%; background: #000; border: 1px solid var(--glass-border); color: #fff; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
-                                <div class="builder-video-container" style="border-radius: ${bRadius}">
-                                    <iframe src="${ytUrl}" frameborder="0" allowfullscreen></iframe>
-                                </div>
-                            </div>
-                        `;
-                    }
-
-                    div.innerHTML = `
-                        <div class="block-controls">
-                            <div class="block-move-btns">
-                                <button class="block-btn" onclick="builder.move(${index}, -1)"><i class="fa-solid fa-chevron-up"></i></button>
-                                <button class="block-btn" onclick="builder.move(${index}, 1)"><i class="fa-solid fa-chevron-down"></i></button>
-                            </div>
-                            <div class="block-actions" style="flex-wrap: wrap; height: auto;">
-                                <button class="block-btn ${block.align === 'left' ? 'active' : ''}" onclick="builder.setStyle(${index}, 'align', 'left')"><i class="fa-solid fa-align-left"></i></button>
-                                <button class="block-btn ${block.align === 'center' ? 'active' : ''}" onclick="builder.setStyle(${index}, 'align', 'center')"><i class="fa-solid fa-align-center"></i></button>
-                                <button class="block-btn ${block.align === 'right' ? 'active' : ''}" onclick="builder.setStyle(${index}, 'align', 'right')"><i class="fa-solid fa-align-right"></i></button>
-                                <button class="block-btn ${block.bold ? 'active' : ''}" onclick="builder.setStyle(${index}, 'bold', ${!block.bold})"><i class="fa-solid fa-bold"></i></button>
-                                <button class="block-btn ${block.highlight ? 'active' : ''}" onclick="builder.setStyle(${index}, 'highlight', ${!block.highlight})" title="Destaque"><i class="fa-solid fa-highlighter"></i></button>
-                                <button class="block-btn ${block.gradientBg ? 'active' : ''}" onclick="builder.toggleGradient(${index})" title="Gradiente"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-                                <button class="block-btn" onclick="builder.changeColor(${index})" title="Cor Texto"><i class="fa-solid fa-palette"></i></button>
-                                <button class="block-btn" onclick="builder.changeBgColor(${index})" title="Cor Fundo"><i class="fa-solid fa-fill-drip"></i></button>
-                                <button class="block-btn" onclick="builder.remove(${index})" style="color: #ff4d4d; margin-left: auto;" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-                            </div>
-                        </div>
-                        <div class="personalization-controls">
-                            <div class="control-group">
-                                <label>Fonte (${block.fontSize || 16}px)</label>
-                                <div style="display: flex; gap: 5px;">
-                                    <button class="block-btn" onclick="builder.changeFontSize(${index}, -2)" style="flex:1"><i class="fa-solid fa-minus"></i></button>
-                                    <button class="block-btn" onclick="builder.changeFontSize(${index}, 2)" style="flex:1"><i class="fa-solid fa-plus"></i></button>
-                                </div>
-                            </div>
-                            <div class="control-group">
-                                <label>Bordas (${block.borderRadius || 0}px)</label>
-                                <div style="display: flex; gap: 5px;">
-                                    <button class="block-btn" onclick="builder.changeBorderRadius(${index}, -4)" style="flex:1"><i class="fa-solid fa-minus"></i></button>
-                                    <button class="block-btn" onclick="builder.changeBorderRadius(${index}, 4)" style="flex:1"><i class="fa-solid fa-plus"></i></button>
-                                </div>
-                            </div>
-                            <div class="control-group">
-                                <label>Animação</label>
-                                <select class="block-btn" onchange="builder.setStyle(${index}, 'animation', this.value)" style="width: 100%; border-radius: 6px; padding: 5px;">
-                                    <option value="none" ${block.animation === 'none' ? 'selected' : ''}>Nenhuma</option>
-                                    <option value="fadeIn" ${block.animation === 'fadeIn' ? 'selected' : ''}>Fade In</option>
-                                    <option value="slideUp" ${block.animation === 'slideUp' ? 'selected' : ''}>Slide Up</option>
-                                    <option value="zoomIn" ${block.animation === 'zoomIn' ? 'selected' : ''}>Zoom In</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="block-content-area ${block.animation && block.animation !== 'none' ? 'anim-' + block.animation : ''}" style="padding-top: 10px;">
-                            ${contentHtml}
-                        </div>
-                    `;
-
-                    list.appendChild(div);
-                });
-                ui.initScrollReveal();
-            },
-
-            updateContent(index, value) {
-                this.blocks[index].content = value;
-            },
-
-            updateListContent(index, side, value) {
-                let parts = this.blocks[index].content.split('|||');
-                if (parts.length < 2) parts = [parts[0] || '', ''];
-                if (side === 'left') parts[0] = value;
-                if (side === 'right') parts[1] = value;
-                this.blocks[index].content = parts.join('|||');
-            },
-
-            setStyle(index, prop, value) {
-                this.blocks[index][prop] = value;
-                this.renderAll();
-            },
-
-            changeColor(index) {
-                this.pickColor((color) => {
-                    this.blocks[index].color = color;
-                    this.renderAll();
-                });
-            },
-
-            changeBgColor(index) {
-                this.pickColor((color) => {
-                    this.blocks[index].bgColor = color;
-                    this.renderAll();
-                });
-            },
-            
-            changeHighlightColor(index) {
-                this.pickColor((color) => {
-                    this.blocks[index].highlightColor = color;
-                    this.blocks[index].highlight = true; 
-                    this.renderAll();
-                });
-            },
-
-            triggerImageUpload(index) {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = async (e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    showToast('Enviando nova imagem para Cloudinary...');
-                    const result = await this.uploadToCloudinary(file);
-                    if (result && result.url) {
-                        this.blocks[index].content = result.url;
-                        this.blocks[index].public_id = result.public_id;
-                        this.renderAll();
-                        showToast('Imagem atualizada! 🚀');
-                    }
-                };
-                input.click();
-            },
-
             isDarkColor(hex) {
                 if (!hex || hex === 'transparent') return false;
                 const c = hex.substring(1);
@@ -4084,289 +2807,156 @@
                 const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
                 return luma < 128;
             },
-
-            move(index, dir) {
-                const newIndex = index + dir;
-                if (newIndex < 0 || newIndex >= this.blocks.length) return;
-                const temp = this.blocks[index];
-                this.blocks[index] = this.blocks[newIndex];
-                this.blocks[newIndex] = temp;
+            getYoutubeEmbed(url) {
+                if (!url) return '';
+                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                const match = url.match(regExp);
+                return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : url;
+            },
+            renderAll() {
+                const list = document.getElementById('block-list');
+                if(!list) return;
+                list.innerHTML = this.blocks.map((b, i) => `
+                    <div class="blog-block" style="text-align:${b.align}; color:${b.color}; background:${b.bgColor}; border-radius:${b.borderRadius}px; margin-bottom: 15px;">
+                        <div class="block-controls">
+                            <span style="font-size: 0.7rem; font-weight: 800; color: var(--accent-color); text-transform: uppercase;">${b.type}</span>
+                            <div class="block-actions">
+                                <i class="fa-solid fa-trash" style="cursor: pointer; color: #ff3e3e;" onclick="builder.remove(${i})"></i>
+                            </div>
+                        </div>
+                        ${b.type === 'title' ? `<input type="text" class="builder-title-input" value="${b.content}" oninput="builder.update(${i}, 'content', this.value)">` : 
+                          b.type === 'text' || b.type === 'quote' ? `<textarea class="builder-text-input" oninput="builder.update(${i}, 'content', this.value)">${b.content}</textarea>` : 
+                          `<img src="${b.content || 'https://via.placeholder.com/400x200?text=Imagem+vazia'}" style="width:100%; border-radius: 8px;">`}
+                    </div>
+                `).join('');
+            },
+            update(i, key, val) { this.blocks[i][key] = val; },
+            remove(i) { this.blocks.splice(i, 1); this.renderAll(); },
+            async publish(status) {
+                const gn = document.getElementById('builderGroupName').value || 'Meu Trabalho';
+                const res = await fetch('/api/posts', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ groupName: gn, isBuilderBlog: true, layout: this.blocks, status: status })
+                });
+                if(res.ok) { ui.closeModal('builderModal'); api.fetchPosts(); showToast('Trabalho publicado com sucesso! 🚀'); }
+            },
+            loadTemplate(type) {
+                if(type === 'noticia') {
+                    this.blocks = [
+                        { type: 'title', content: 'Grande Notícia do Dia', align: 'center', color: '#ffffff', bgColor: 'transparent' },
+                        { type: 'text', content: 'Este é o corpo da notícia. Escreva os detalhes aqui...', align: 'left', color: '#a0a0a0', bgColor: 'transparent' }
+                    ];
+                }
                 this.renderAll();
             },
-
-            remove(index) {
-                this.blocks.splice(index, 1);
+            async searchParticipants(q) {
+                if(!q) { document.getElementById('participantSuggestions').style.display = 'none'; return; }
+                const res = await fetch(`/api/search?q=${q}`, { headers: { 'Authorization': `Bearer ${state.token}` } });
+                const users = await res.json();
+                const container = document.getElementById('participantSuggestions');
+                container.style.display = 'block';
+                container.innerHTML = users.map(u => `
+                    <div class="suggestion-item" onclick="builder.toggleParticipant('${u._id}', '${u.username}')">
+                        <img src="${getAvatar(u.username, u.avatar)}">
+                        <span>${u.username}</span>
+                    </div>
+                `).join('');
+            },
+            toggleParticipant(id, username) {
+                const container = document.getElementById('builderParticipantTags');
+                const existing = container.querySelector(`[data-id="${id}"]`);
+                if(existing) existing.remove();
+                else {
+                    const tag = document.createElement('div');
+                    tag.className = 'tag-chip';
+                    tag.dataset.id = id;
+                    tag.innerHTML = `${username} <i class="fa-solid fa-xmark" onclick="this.parentElement.remove()"></i>`;
+                    container.appendChild(tag);
+                }
+                document.getElementById('participantSuggestions').style.display = 'none';
+                document.getElementById('builderParticipantSearch').value = '';
+            },
+            async handleHeroUploadFromInput(e) {
+                const file = e.target.files[0];
+                if(!file) return;
+                const formData = new FormData();
+                formData.append('file', file);
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${state.token}` },
+                    body: formData
+                });
+                const data = await res.json();
+                this.addBlock('img');
+                this.blocks[this.blocks.length-1].content = data.url;
                 this.renderAll();
             },
+            async handleImageUploadFromInput(e) { this.handleHeroUploadFromInput(e); }
+        };
 
-            async publish(status = 'published') {
-                const groupName = document.getElementById('builderGroupName').value;
-                const participantIds = this.participants.map(p => p.id);
-                
-                if (this.blocks.length === 0) {
-                    showToast('O blog está vazio ⚠️');
-                    return;
-                }
-
-                const btn = document.getElementById('btnSaveBlog');
-                const originalText = btn.innerText;
-                btn.innerText = this.editingPostId ? 'Atualizando...' : (status === 'published' ? 'Publicando...' : 'Salvando...');
-                btn.disabled = true;
-
-                try {
-                    const method = this.editingPostId ? 'PUT' : 'POST';
-                    const endpoint = this.editingPostId ? `/api/posts/${this.editingPostId}` : '/api/posts';
-
-                    const formData = new FormData();
-                    formData.append('groupName', groupName);
-                    formData.append('participants', JSON.stringify(participantIds));
-                    formData.append('layout', JSON.stringify(this.blocks));
-                    formData.append('isBuilderBlog', true);
-                    formData.append('bgColor', this.globalBgColor);
-                    formData.append('status', status);
-
-                    let res;
-                    if (this.editingPostId) {
-                        res = await fetch(endpoint, {
-                            method: 'PUT',
-                            headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                groupName,
-                                participants: JSON.stringify(participantIds),
-                                layout: JSON.stringify(this.blocks),
-                                bgColor: this.globalBgColor,
-                                status: status
-                            })
-                        });
-                    } else {
-                        res = await fetch(endpoint, {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${state.token}` },
-                            body: formData
-                        });
-                    }
-
-                    if (res.ok) {
-                        showToast(status === 'published' ? 'Postagem publicada! 🚀' : 'Rascunho salvo! 📝');
-                        ui.closeModal('builderModal');
-                        api.fetchPosts();
-                    } else {
-                        const err = await res.json();
-                        showToast(err.error || 'Erro ao salvar');
-                    }
-                } catch(e) { console.error(e); showToast('Erro de conexão'); }
-                finally {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                }
+        const notes = {
+            async fetch() {
+                const res = await fetch('/api/notes', { headers: { 'Authorization': `Bearer ${state.token}` } });
+                const list = await res.json();
+                const container = document.getElementById('notesContainer');
+                if(container) container.innerHTML = list.map(n => `<div class="note-item"><div class="note-bubble">${n.content}</div></div>`).join('');
             }
         };
 
-        const auth = {
-            async login() {
-                const username = document.getElementById('loginUser').value;
-                const password = document.getElementById('loginPass').value;
-                
-                try {
-                    const res = await fetch('/api/auth/login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password })
-                    });
-                    
-                    if(res.ok) {
-                        const data = await res.json();
-                        localStorage.setItem('token', data.token);
-                        localStorage.setItem('user', JSON.stringify(data.user));
-                        location.reload();
-                    } else {
-                        alert('Usuário ou senha incorretos');
-                    }
-                } catch(e) { alert('Erro na conexão'); }
-            },
-            async register() {
-                const fullName = document.getElementById('regName').value;
-                const username = document.getElementById('regUser').value;
-                const password = document.getElementById('regPass').value;
-                
-                try {
-                    const res = await fetch('/api/auth/register', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fullName, username, password })
-                    });
-                    
-                    if(res.ok) {
-                        alert('Cadastro realizado com sucesso!');
-                        ui.showPage('loginPage');
-                    } else {
-                        alert('Erro ao cadastrar. Talvez o usuário já exista.');
-                    }
-                } catch(e) { alert('Erro na conexão'); }
-            },
-            logout() {
-                localStorage.clear();
-                location.reload();
+        // Socket Events
+        socket.on('newMessage', (msg) => {
+            if(state.activeChatUser && msg.sender === state.activeChatUser.id) {
+                // UI update logic here if needed
             }
-        };
+        });
 
-        const aiAssistant = {
-            isOpen: false,
-            messages: [],
-            
-            toggle() {
-                this.isOpen = !this.isOpen;
-                const sidebar = document.getElementById('aiSidebar');
-                const mainArea = document.getElementById('builderMainArea');
-                
-                if (this.isOpen) {
-                    sidebar.style.width = '350px';
-                    sidebar.style.minWidth = '350px';
-                    mainArea.style.opacity = '0.7';
-                } else {
-                    sidebar.style.width = '0';
-                    sidebar.style.minWidth = '0';
-                    mainArea.style.opacity = '1';
-                }
-            },
+        // Helpers
+        function getAvatar(username, url) { return url || `https://api.dicebear.com/7.x/initials/svg?seed=${username}`; }
+        function showToast(m) { 
+            const t = document.getElementById('toastContainer'); 
+            if(!t) return;
+            const d = document.createElement('div'); d.className='toast'; d.innerText=m; 
+            t.appendChild(d); 
+            setTimeout(()=>d.remove(), 3000); 
+        }
 
-            addMessage(role, content) {
-                const chat = document.getElementById('aiChatMessages');
-                const div = document.createElement('div');
-                div.className = role === 'user' ? 'user-msg' : 'ai-msg';
-                div.innerHTML = content;
-                chat.appendChild(div);
-                chat.scrollTop = chat.scrollHeight;
-                
-                // Store in history for memory
-                this.messages.push({ role, content });
-            },
-
-            async send() {
-                const input = document.getElementById('aiInput');
-                if (!input) return; // Guard
-                const text = input.value.trim();
-                if (!text) return;
-                
-                this.addMessage('user', text);
-                input.value = '';
-                
-                const indicator = document.getElementById('aiTypingIndicator');
-                indicator.style.display = 'block';
-                indicator.classList.add('pulse');
-
-                // Update status based on keywords
-                let statusMsg = "O Mestre está pensando... 🧠";
-                if (text.toLowerCase().includes('pesquise') || text.toLowerCase().includes('notícia') || text.toLowerCase().includes('quem é')) {
-                    statusMsg = "Buscando informações na web... 🔍";
-                }
-                indicator.innerHTML = statusMsg;
-                
-                try {
-                    const res = await fetch('/api/ai/chat', {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${state.token}`
-                        },
-                        body: JSON.stringify({ 
-                            messages: this.messages,
-                            currentLayout: builder.blocks 
-                        })
-                    });
-                    
-                    const data = await res.json();
-                    
-                    if (data.error) {
-                        indicator.style.display = 'none';
-                        this.addMessage('ai', 'Ops! Tive um problema técnico. Tente novamente.');
-                        return;
-                    }
-
-                    // If layout contains images or hero, show "Generating images" briefly
-                    if (data.layout && data.layout.some(b => b.type === 'img' || b.type === 'hero')) {
-                        indicator.innerHTML = "Gerando imagens com Pollinations... 🎨";
-                        await new Promise(r => setTimeout(r, 1500));
-                    }
-
-                    indicator.style.display = 'none';
-
-                    if (data.message) {
-                        this.addMessage('ai', data.message);
-                    }
-
-                    if (data.layout) {
-                        this.applyLayout(data.layout, data.bgColor);
-                    }
-
-                } catch (e) {
-                    indicator.style.display = 'none';
-                    this.addMessage('ai', 'Erro na conexão com o Mestre IA.');
-                }
-            },
-
-            applyLayout(newLayout, bgColor) {
-                // Normalize AI blocks to have all required properties like addBlock does
-                const normalizedBlocks = newLayout.map(block => ({
-                    id: Date.now() + Math.random(),
-                    type: block.type,
-                    content: block.content || '',
-                    align: block.align || 'left',
-                    bold: block.bold || false,
-                    color: block.color || (block.type === 'subtitle' ? '#aaaaaa' : block.type === 'info' ? '#164835' : 'var(--text-color)'),
-                    bgColor: block.bgColor || (block.type === 'info' ? '#e9f0ec' : block.type === 'stat' ? '#0f9d58' : 'transparent'),
-                    fontSize: block.fontSize || (block.type === 'title' ? 32 : block.type === 'subtitle' ? 20 : 16),
-                    public_id: block.public_id || null,
-                    highlight: block.highlight || false
-                }));
-                builder.blocks = normalizedBlocks;
-                if (bgColor) {
-                    builder.globalBgColor = bgColor;
-                    document.getElementById('block-list').parentElement.style.background = bgColor;
-                }
-                builder.renderAll();
-                showToast('Layout atualizado pelo Mestre IA! ✨');
-            }
-        };
-
-
-        // Init App
+        // Boot
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const splash = document.getElementById('splashScreen');
-                if(splash) splash.classList.add('fade-out');
-            }, 2000);
+                if(splash) splash.style.display = 'none';
+                
+                if(state.token && state.user) {
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    document.getElementById('loginPage').classList.add('hidden');
+                    ui.initNav();
+                    api.fetchPosts();
+                    notes.fetch();
+                    admin.load();
+                    socket.emit('join', state.user.id);
+                } else {
+                    document.getElementById('mainApp').classList.add('hidden');
+                    document.getElementById('loginPage').classList.remove('hidden');
+                }
+            }, 2000); // 2 second splash
         });
-
-        settings.init();
-        const savedColorTheme = localStorage.getItem('themeColor');
-        if (savedColorTheme) ui.setThemeColor(savedColorTheme);
-        
-        if(state.token) {
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
-            ui.showPage('feedPage');
-            api.fetchPosts();
-            if(state.user) socket.emit('join', state.user.id);
-            admin.load();
-        } else if(location.hash === '#register') {
-            ui.showPage('registerPage');
-        } else {
-            ui.showPage('loginPage');
-        }
-        
-        // Final Boot
-        system.checkStatus();
     </script>
-    <!-- Admin Selector Models -->
-    <div id="adminSelectorModal" class="modal hidden">
-        <div class="modal-content glass">
+
+    <!-- Admin User Management Modal -->
+    <div id="adminUserModal" class="modal hidden">
+        <div class="modal-content glass" style="max-width: 550px;">
             <div class="modal-header">
-                <h3 id="adminSelectorTitle">Selecionar</h3>
-                <i class="fa-solid fa-xmark close-modal" onclick="ui.closeModal('adminSelectorModal')"></i>
+                <h3><i class="fa-solid fa-users-gear"></i> Gestão de Usuários</h3>
+                <i class="fa-solid fa-xmark close-modal" onclick="ui.closeModal('adminUserModal')"></i>
             </div>
-            <div id="adminSelectorList" style="max-height: 400px; overflow-y: auto; margin-top: 15px;"></div>
+            <div style="padding: 20px;">
+                <input type="text" id="adminUserSearch" class="glass-input" placeholder="Buscar par username..." oninput="admin.searchUsersForManagement()" style="margin-bottom: 20px;">
+                <div id="adminUserList" style="display: flex; flex-direction: column; gap: 12px; max-height: 450px; overflow-y: auto;">
+                    <p style="text-align: center; color: var(--secondary-text);">Digite um nome para buscar.</p>
+                </div>
+            </div>
         </div>
     </div>
 </body>
-</html>
+    </html>
