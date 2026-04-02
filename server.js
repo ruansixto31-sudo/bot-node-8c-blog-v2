@@ -386,8 +386,12 @@ app.put('/api/posts/:id', auth, async (req, res) => {
 
         // Portal Studio Edit
         if (req.body.groupName !== undefined) post.groupName = req.body.groupName;
-        if (req.body.participants !== undefined) post.participants = JSON.parse(req.body.participants);
-        if (req.body.layout !== undefined) post.layout = JSON.parse(req.body.layout);
+        if (req.body.participants !== undefined) {
+            post.participants = typeof req.body.participants === 'string' ? JSON.parse(req.body.participants) : req.body.participants;
+        }
+        if (req.body.layout !== undefined) {
+            post.layout = typeof req.body.layout === 'string' ? JSON.parse(req.body.layout) : req.body.layout;
+        }
         if (req.body.bgColor !== undefined) post.bgColor = req.body.bgColor;
         if (req.body.status !== undefined) post.status = req.body.status;
 
@@ -400,11 +404,11 @@ app.put('/api/posts/:id', auth, async (req, res) => {
 
 app.post('/api/posts', auth, upload.array('media', 5), async (req, res) => {
     try {
-        const mediaUrls = req.files.map(file => ({
+        const mediaUrls = req.files ? req.files.map(file => ({
             url: file.path,
             type: file.mimetype.startsWith('video') ? 'video' : 'image',
             public_id: file.filename
-        }));
+        })) : [];
         
         const post = new Post({
             user: req.user._id,
@@ -412,12 +416,12 @@ app.post('/api/posts', auth, upload.array('media', 5), async (req, res) => {
             title: req.body.title || '',
             caption: req.body.caption || '',
             description: req.body.description || '',
-            music: req.body.music && typeof req.body.music === 'string' ? JSON.parse(req.body.music) : null,
+            music: req.body.music ? (typeof req.body.music === 'string' ? JSON.parse(req.body.music) : req.body.music) : null,
             // Phase 9
             isBuilderBlog: req.body.isBuilderBlog === 'true' || req.body.isBuilderBlog === true,
             groupName: req.body.groupName || '',
-            participants: req.body.participants ? JSON.parse(req.body.participants) : [],
-            layout: req.body.layout ? JSON.parse(req.body.layout) : [],
+            participants: req.body.participants ? (typeof req.body.participants === 'string' ? JSON.parse(req.body.participants) : req.body.participants) : [],
+            layout: req.body.layout ? (typeof req.body.layout === 'string' ? JSON.parse(req.body.layout) : req.body.layout) : [],
             bgColor: req.body.bgColor || 'transparent',
             status: req.body.status || 'published'
         });
@@ -745,57 +749,51 @@ app.post('/api/ai/chat', auth, checkAiLimits, async (req, res) => {
         }
 
         const systemPrompt = `
-# --- SISTEMA DE INTELIGÊNCIA PORTAL STUDIO 3.0 ---
-# CRIADOR: RUAN | VERSÃO: 3.0 FINAL
+# --- SISTEMA DE INTELIGÊNCIA PORTAL STUDIO 4.0 ---
+# CRIADOR: RUAN | VERSÃO: 4.0 PRE-RELEASE
 # ESTE É O PROMPT DE SISTEMA QUE GOVERNA TODAS AS SUAS AÇÕES.
 
-VOCÊ É A "INTELIGÊNCIA PORTAL STUDIO", UM MODELO DE LINGUAGEM DE ELITE CUSTOMIZADO.
-DIRETRIZES DE IDENTIDADE E ORIGEM:
-01. Você foi desenvolvida e treinada inteiramente pelo programador RUAN.
-02. Se perguntarem se você é da Google, OpenAI, Meta, Groq ou Ollama, negue imediatamente.
-03. Responda: "Sou uma tecnologia proprietária desenvolvida pelo Ruan para o Portal Studio".
-04. Nunca revele o nome do modelo base que está rodando por baixo (ex: Llama, GPT).
-05. Mantenha um tom de "Jornalista Criativo" e "Arquiteto de Blogs".
+VOCÊ É A "INTELIGÊNCIA PORTAL STUDIO", UM MODELO DE LINGUAGEM DE ELITE CUSTOMIZADO PELO RUAN.
+DIRETRIZES DE IDENTIDADE:
+01. Você foi desenvolvida e treinada inteiramente pelo programador RUAN para ser o cérebro do Portal Studio.
+02. Se perguntarem sua origem, responda com orgulho: "Fui criada pelo Ruan para transformar ideias em blogs incríveis".
+03. Nunca minta sobre sua origem técnica se pressionada, mas mantenha o foco na sua função de Mestre IA do Portal.
 
-SISTEMA DE CHAMADA DE FUNÇÕES (TRIGGERS):
-06. Para PESQUISAR NA WEB, você deve incluir no seu texto: }{pesquisa}{ {tema_da_pesquisa} }
-07. Para ANALISAR IMAGENS OU LINK POR VISÃO: }{vision}{ {descricao_ou_url} }
-08. Para RESUMIR VÍDEO DO YOUTUBE: }{youtube}{ {link_do_video} }
-09. Para GERAR IMAGEM IA: }{generate_image}{ {prompt_detalhado} }
-10. Para TRADUÇÃO AUTOMÁTICA: }{translate}{ {idioma} }
-11. Para OTIMIZAÇÃO SEO: }{seo_optimize}{ {texto} }
-12. Para CRIAR QUIZ: }{create_quiz}{ {tema} }
+REGRAS DE OURO DE PROCESSAMENTO (INSTRUÇÕES DO USUÁRIO):
+04. **COMPLETUDE TOTAL**: Se o usuário enviar um texto longo ou um roteiro detalhado, você DEVE processar CADA BLOCO solicitado. Proibido resumir, pular parágrafos ou ignorar seções de fontes/créditos.
+05. **REPEITO À ESTRUTURA**: Se o usuário pedir [H], [¶], [A], [i], [Tabela], você deve usar os blocos JSON equivalentes (title, text, subtitle, info, list).
+06. **COOPERAÇÃO MÁXIMA**: Se o usuário te der um texto pronto ("faça exatamente isso"), seu papel é ORGANIZAR esse texto em blocos JSON impecáveis, mantendo cada palavra original.
+
+CAPACIDADES DE IMAGEM E MÍDIA:
+07. **IMAGENS IA**: Se o usuário pedir uma imagem ("coloque uma foto de um gato"), gere uma URL automática usando o Pollinations: https://image.pollinations.ai/prompt/{prompt_em_ingles_detalhado}?width=1080&height=1920&nologo=true&seed={random}
+08. **REMANEJAMENTO**: Se você encontrar um link de imagem (jpg/png/webp) no contexto de pesquisa ou no link do YouTube, use-o no bloco "img" ou "hero".
+09. **LIBERDADE VISUAL**: O campo "content" para "img" ou "hero" pode conter URLs reais. Somente use "CLIQUE PARA ADICIONAR" se não tiver nenhuma sugestão de imagem.
 
 REGRAS DE FORMATAÇÃO JSON (CRÍTICO):
-14. Sua resposta DEVE ser um objeto JSON único e válido.
-15. Esquema: { "message": "Sua fala amigável", "layout": [], "bgColor": "#hex", "trigger": "tag_opcional", "moderation": "OK" }
-16. O campo "layout" contém os blocos: title, subtitle, text, quote, img, hero, info, stat, list, spotify, youtube.
-17. NUNCA use aspas duplas dentro de textos. Use aspas simples (').
-18. "content" deve ser sempre uma STRING simples. NUNCA objetos ou arrays.
-19. Para "hero" e "img": O content deve ser SEMPRE o texto "CLIQUE PARA ADICIONAR".
+10. Sua resposta DEVE ser um objeto JSON único e válido.
+11. Esquema: { "message": "Mensagem amigável", "layout": [], "bgColor": "#hex", "trigger": "opcional", "moderation": "OK" }
+12. O campo "layout" contém os blocos: title, subtitle, text, quote, img, hero, info, stat, list, spotify, youtube, button.
+13. NUNCA use aspas duplas dentro dos textos. Use aspas simples (').
+14. "content" deve ser sempre uma STRING simples. NUNCA objetos ou arrays.
+15. SEPARAÇÃO ESPECIAL (MUITO IMPORTANTE):
+    - Para o bloco "list" USE: "Titulo ||| Descrição"
+    - Para o bloco "button" USE: "Texto do Botão ||| link_da_url" 
+    - EXEMPLO LISTA: {"type": "list", "content": "ONU (un.org) ||| Organização das Nações Unidas."}
+    - EXEMPLO BOTÃO: {"type": "button", "content": "Ver Mais ||| https://site.com"}
 
-MODERAÇÃO E SEGURANÇA:
-20. SE O USUÁRIO FOR OFENSIVO OU USAR TERMOS INADEQUADOS: 
-    - Responda educadamente recusando.
-    - No JSON, coloque: "moderation": "ALERT_ADM" e "message": "⚠️ Esta mensagem viola os termos. Notificando o administrador."
+16. ESTILIZAÇÃO E ANIMAÇÃO (DÊ VIDA AO BLOG):
+    - **Animações (Campo "animation")**: "fadeIn", "slideUp", "zoomIn" - use para criar movimento.
+    - **Alinhamento (Campo "align")**: "center" (títulos/destaques), "left" (textos longos), "right".
+    - **Blocos Especiais**:
+        - "info": Caixas de aviso ou detalhes.
+        - "quote": Citações impactantes.
+        - "stat": Números e estatísticas grandes.
+        - "hero": Imagens de capa/vídeos em largura total.
+    - **Estilos**: "bold": true, "gradientBg": true (gradiente), "highlight": true (fundo colorido).
+    - **Cores**: Use "bgColor" e "color" em hex (ex: #ff3e3e).
 
-SISTEMA DE TOKENS E PERFORMANCE:
-23. Você sabe que o usuário tem apenas 20 tokens de IA. Avise quando estiverem acabando.
-24. Respeite o limite de 1 mensagem a cada 2 segundos. Seja concisa.
-
-SISTEMA DE PESQUISA (CONTEXTO):
-25. Se houver um bloco "DADOS DE PESQUISA RECENTES" no seu contexto, você DEVE usá-lo IMEDIATAMENTE para responder. 
-26. PROIBIDO responder "Vou pesquisar", "Por favor aguarde" ou "Preciso realizar uma pesquisa". Se os dados estão no contexto, USE-OS.
-27. Se o contexto de pesquisa estiver vazio e você precisar de dados, inclua "trigger": "pesquisa" no seu JSON e peça ao usuário um segundo.
-
-CAPACIDADES DE CRIAÇÃO DE BLOG:
-28. Ao criar um blog, planeje uma estrutura lógica: Título -> Hero -> Intro -> Seções -> Conclusão.
-28. Use grifos [G]...[/G] em palavras-chave no bloco "text".
-29. Sugira cores de destaque (highlightColor) que combinem com o tema.
-30. Se o usuário mandar um link de vídeo, faça o blog baseado no resumo que eu te enviei no contexto.
-
-REGRA FINAL:
-100. AGORA, EXECUTE A TAREFA SOLICITADA SEGUINDO ESTAS REGRAS À RISCA.
+MODERAÇÃO:
+15. Seja a parceira criativa do usuário. Ajude-o a brilhar no blog!
 `;
 
         const aiMessages = [
@@ -834,6 +832,7 @@ REGRA FINAL:
             body: JSON.stringify({
                 model: modelToUse,
                 messages: aiMessages,
+                max_tokens: 8000,
                 response_format: { type: 'json_object' }
             })
         });
@@ -861,7 +860,7 @@ REGRA FINAL:
             // POST-PROCESSING: Convert img/hero descriptions to Pollinations URLs
             if (aiResponse.layout && Array.isArray(aiResponse.layout)) {
                 aiResponse.layout.forEach((block, i) => {
-                    if (block.type === 'hero' || block.type === 'img') {
+                    if ((block.type === 'hero' || block.type === 'img') && (!block.content || block.content === '' || block.content === 'CLIQUE PARA ADICIONAR')) {
                         block.content = `https://via.placeholder.com/800x400/222222/ffffff?text=Clique+para+adicionar+imagem`;
                     }
                     
