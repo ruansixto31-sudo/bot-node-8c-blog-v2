@@ -442,6 +442,23 @@ app.post('/api/posts', auth, upload.array('media', 5), async (req, res) => {
     }
 });
 
+app.delete('/api/posts/:id', auth, async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.id);
+        if (!post) return res.status(404).json({ error: 'Post não encontrado.' });
+        
+        const user = await User.findById(req.user._id);
+        if (post.user.toString() !== req.user._id.toString() && !user.isAdmin) {
+            return res.status(403).json({ error: 'Não autorizado a excluir este post.' });
+        }
+        
+        await Post.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Post removido com sucesso!' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/posts', auth, async (req, res) => {
     try {
         const { q } = req.query;
@@ -632,7 +649,7 @@ app.get('/api/users', auth, async (req, res) => {
             }
         }
         
-        const users = await User.find(query).limit(50).select('username fullName avatar bio isFake');
+        const users = await User.find(query).limit(50).select('username fullName avatar bio isFake isVerified iaTokens isAdmin');
         res.json(users);
     } catch (err) {
         console.error('CRITICAL: Error in GET /api/users:', err);
@@ -1629,6 +1646,65 @@ app.post('/api/admin/generate-fakes', adminAuth, async (req, res) => {
             fakes.push(user);
         }
         res.json({ success: true, count: fakes.length });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/force-follow', adminAuth, async (req, res) => {
+    try {
+        const { handle } = req.body;
+        const username = handle.startsWith('@') ? handle.substring(1) : handle;
+        const targetUser = await User.findOne({ username });
+        if(!targetUser) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+        const allUsers = await User.find({ _id: { $ne: targetUser._id } });
+        let addedCount = 0;
+        
+        for(const u of allUsers) {
+            if(!u.following.includes(targetUser._id)) {
+                u.following.push(targetUser._id);
+                targetUser.followers.push(u._id);
+                await u.save();
+                addedCount++;
+            }
+        }
+        await targetUser.save();
+        res.json({ success: true, message: `${addedCount} contas agora seguem @${targetUser.username}` });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/inject-engagement', adminAuth, async (req, res) => {
+    try {
+        const { postId, likesCount, comments } = req.body;
+        const post = await Post.findById(postId);
+        if(!post) return res.status(404).json({ error: 'Post não encontrado' });
+
+        const fakes = await User.find({ isFake: true }).limit(parseInt(likesCount) || 50);
+        
+        // Add likes
+        let likesAdded = 0;
+        for(const f of fakes) {
+            if(!post.likes.includes(f._id)) {
+                post.likes.push(f._id);
+                likesAdded++;
+            }
+        }
+
+        // Add comments
+        if(comments && Array.isArray(comments)) {
+            for(const text of comments) {
+                if(!text.trim()) continue;
+                const randomFake = fakes[Math.floor(Math.random() * fakes.length)];
+                if(!randomFake) continue;
+                post.comments.push({
+                    user: randomFake._id,
+                    text: text.trim(),
+                    createdAt: new Date()
+                });
+            }
+        }
+
+        await post.save();
+        res.json({ success: true, message: `${likesAdded} curtidas e ${comments?.length || 0} comentários injetados.` });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
